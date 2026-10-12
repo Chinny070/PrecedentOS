@@ -1,4 +1,10 @@
 # Python bytecode and test/tool caches
+node_modules/
+**/node_modules/
+**/.npm-cache/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
 __pycache__/
 *.py[cod]
 *$py.class
