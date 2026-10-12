@@ -1,0 +1,21 @@
+{
+  "notice": "Fictional public test data only. Digests are fixed-format placeholders for registry validation tests, not commitments to source documents.",
+  "records": [
+    {
+      "record_id": "FICT-A-0001",
+      "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "schema_version": 1,
+      "jurisdiction": "Fictional North District",
+      "decision_date": "2030-01-15",
+      "category": "Fictional permit dispute"
+    },
+    {
+      "record_id": "FICT-B-0002",
+      "evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "schema_version": 1,
+      "jurisdiction": "Fictional South District",
+      "decision_date": "2030-02-20",
+      "category": "Fictional emergency exception"
+    }
+  ]
+}

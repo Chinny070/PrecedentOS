@@ -1,0 +1,35 @@
+{
+  "criteria_version": 1,
+  "evidence_schema_version": 1,
+  "criteria": "Compare the stated issue, rule, material facts, outcomes, and any expressly stated exception. Treat a difference as a possible contradiction only if it remains unexplained by the supplied facts. Use no outside assumptions.",
+  "cases": {
+    "matching": {
+      "record_a_id": "FICT-NOISE-0001",
+      "record_b_id": "FICT-NOISE-0002",
+      "precedent_a": "A fictional panel found that a shop violated a quiet-hours rule by playing amplified music after 22:00. No exception applied.",
+      "precedent_b": "A fictional panel found a shop breached the same quiet-hours rule by playing amplified music after 22:00. The record states that no exception applied.",
+      "expected_classification": "material_similarity"
+    },
+    "explained_outcome_difference": {
+      "record_a_id": "FICT-WORKS-0001",
+      "record_b_id": "FICT-WORKS-0002",
+      "precedent_a": "A fictional panel found routine street works after 22:00 violated the quiet-hours rule. No exception applied.",
+      "precedent_b": "A fictional panel found street works after 22:00 did not violate the same quiet-hours rule because an express emergency water-main exception applied to an immediate repair.",
+      "expected_classification": "material_similarity"
+    },
+    "unexplained_conflict": {
+      "record_a_id": "FICT-PERMIT-0001",
+      "record_b_id": "FICT-PERMIT-0002",
+      "precedent_a": "A fictional panel held that a permit allowed a temporary sign on a public walkway and that this placement complied with the stated walkway rule. No exception or different fact was identified.",
+      "precedent_b": "A fictional panel held that a permit allowed a temporary sign on the same type of public walkway and that this placement violated the same stated walkway rule. No exception or different fact was identified.",
+      "expected_classification": "possible_contradiction"
+    },
+    "insufficient": {
+      "record_a_id": "FICT-UNKNOWN-0001",
+      "record_b_id": "FICT-UNKNOWN-0002",
+      "precedent_a": "A fictional decision discusses a permit, but the supplied excerpt does not state the issue, rule, facts, or outcome.",
+      "precedent_b": "A fictional decision discusses a permit. The supplied excerpt omits the relevant rule, facts, and outcome.",
+      "expected_classification": "insufficient_evidence"
+    }
+  }
+}
