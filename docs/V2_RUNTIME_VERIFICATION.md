@@ -82,3 +82,23 @@ Documentation establishes intended method/API patterns, not the deployed Studion
 6. Verify Web Render URL controls, redirects, private-network protections, output caps and validator behavior on the exact target runtime before enabling it.
 
 No deployment, wallet signature, write transaction, Docker service or configuration change occurred during this verification.
+
+## Stage 3A refresh (2026-10-13)
+
+The user's new instruction reports that their ordinary PowerShell previously returned `0xf22f` from `eth_chainId`. This is a user-observed read-only Studionet result and is recorded separately from the Codex PowerShell failure above; Codex did not retry the same blocked socket operation. Current [Networks documentation](https://docs.genlayer.com/developers/networks) still lists stable Studionet as `https://studio.genlayer.com/api`, chain ID `61999`, while Studio development preview is a separate `61997` network.
+
+| Runtime item | Stage 3A status | Evidence boundary |
+|---|---|---|
+| Stable Studionet identity | **Verified on Studionet (user-reported read-only RPC)** | User-reported `0xf22f`; Codex host cannot independently query. No write or wallet signature. |
+| Supported stable GenVM runner | **Blocked** | Existing contract pin and cached lint runner do not map authoritatively to stable's selected runner. Upstream lookup fails Windows socket error 10013. |
+| Cross-contract views | **Blocked for this project** | [Official API pattern](https://docs.genlayer.com/developers/intelligent-contracts/features/interacting-with-intelligent-contracts) is synchronous `gl.get_contract_at(addr).view().method()`; no two-IC runtime proof. |
+| Child transactions | **Blocked for this project** | [Official message docs](https://docs.genlayer.com/developers/intelligent-contracts/features/messages) confirm asynchronous `emit`, `sender_address`/`origin_address`, and `on='finalized'`; no local/live child execution. |
+| AI nondeterministic execution | **Locally tested (mocked)** | Existing Evaluator Direct Mode mocks; current docs and installed source show the API pattern. No real model/validator run. |
+| Custom Equivalence Principle | **Locally tested (mocked)** | Existing custom decision-field comparison under `run_nondet_unsafe`; no live disagreement/acceptance proof. [Official EP reference](https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle). |
+| Transaction timestamp | **Locally tested / documentation-confirmed** | CaseCourt Direct Mode only; [current transaction-context docs](https://docs.genlayer.com/developers/intelligent-contracts/features/transaction-context) describe pinned transaction time, not block metadata. |
+| Receipt/finality | **Blocked for project runtime** | [Current finality docs](https://docs.genlayer.com/understand-genlayer-protocol/core-concepts/optimistic-democracy/finality) distinguish Accepted from Finalized; no actual project receipt checked. |
+| Web Render | **Not started / blocked** | [Current Web Access docs](https://docs.genlayer.com/developers/intelligent-contracts/features/web-access) show `gl.nondet.web.render(url, mode='html'|'screenshot')`; safety controls/runtime availability not verified. |
+| Deployment and fees | **Blocked** | Current [fee](https://docs.genlayer.com/developers/decentralized-applications/fees-and-transaction-kit) and [deployment](https://docs.genlayer.com/developers/intelligent-contracts/deploying) docs describe profiling/estimation and v2 workflows. Stable fee API compatibility with pinned GenLayerJS 1.1.8 remains unresolved. |
+| Studio browser deployment | **Documentation-confirmed / not started** | [Studio deploy docs](https://docs.genlayer.com/developers/intelligent-contracts/tools/genlayer-studio/deploying-contract) describe constructor detection and deploy UI; no UI interaction/deployment was performed. |
+
+The current docs' v2 GenLayerJS fee/deploy examples and matching Studio-dev release-candidate guidance do not establish compatibility or incompatibility for the installed GenLayerJS 1.1.8 on stable Studionet. No speculative SDK upgrade was performed. Exact manual checks are in `V2_LIVE_VERIFICATION_CHECKLIST.md`.

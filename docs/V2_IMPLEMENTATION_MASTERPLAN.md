@@ -1,12 +1,16 @@
 # PrecedentOS 2.0 Implementation Masterplan
 
-**Current stage:** Stage 2 governance/appeal schema and runtime verification completed with explicit blockers. Stage 1 was committed and pushed; Stage 2 changes remain uncommitted/unpushed.
+**Current stage:** Stage 3A case-bound decision design and deterministic preparation completed locally; runtime and authority gates remain open. Stage 2 was pushed in commit `9644d9915f1c122f326c81690a1b8959c65ae9dd`.
 **Target:** stable GenLayer Studionet, expected chain ID `61999`.
-**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 2 push.
+**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 3A commit/push.
 
 ### Stage 2 execution note (2026-10-13)
 
 Stage 1 CaseCourt is preserved at commit `c9e2b0ee0fee12f1337630141783f73507a92095` on `origin/main`. Stage 2 added a first-level immutable `FILED_UNADJUDICATED` appeal filing and explicit `UNVERIFIED_CALLER_ASSERTION` decision provenance. Current official docs describe IC view calls and finalized child messages, but no cross-contract runtime test or finality callback was available. The existing Evaluator has no case ID/evidence-root binding. The Windows read-only Studionet RPC request was denied at the local socket layer; prior user-reported `0xf22f` remains a user observation, not a result from this run. Full details: `V2_STAGE_2_REPORT.md`, `V2_DECISION_AUTHORITY.md`, `V2_APPEAL_PROTOCOL.md`, and `V2_RUNTIME_VERIFICATION.md`.
+
+### Stage 3A execution note (2026-10-13)
+
+Stage 2 was committed as `9644d9915f1c122f326c81690a1b8959c65ae9dd` and a normal push was acknowledged by GitHub for `main`. An independent `git ls-remote` immediately afterward failed due this host's GitHub socket restriction, so a separate remote SHA read is not claimed. Stage 3A adds only local-only Python/TypeScript schema/commitment checks and documentation; it does not alter production contracts or enable an authoritative decision path. The recommended future architecture is CaseCourt-owned AI adjudication (B), with finalized child messages reserved for finality-dependent side effects (C); no such runtime behavior is asserted. See `V2_STAGE_3A_REPORT.md`, `V2_CASE_BOUND_DECISION_DESIGN.md`, and `V2_LIVE_VERIFICATION_CHECKLIST.md`.
 
 ## 1. Dependency graph
 
@@ -43,6 +47,14 @@ Do not implement dependent features around an unverified call path. Existing Reg
 **Scope:** finalize Registry v2 pagination/relation requirements and CaseCourt state/action schemas; fix canonical encoding, evidence/URL bounds, policy versioning, IDs, counters, reading cursors, query cost and transaction fee profiles. Do not alter v1 Registry/Evaluator unless a reviewed additive version is needed.
 
 **Exit criteria:** method schema table and generated schema match the code; all limits are supported by runner/network profiling; all case policy values have product/due-process review; every state transition has auth/precondition/effect; all case action writes are append-only and replay-bound; contract code size and maximum storage/output fit verified limits.
+
+### Stage 3A — Case-bound authority and deterministic preparation (completed locally, gates open)
+
+**Scope completed:** compare separate engine, Court-owned adjudication and finalized child-message architectures; select Court-owned adjudication for the first authoritative decision; define a versioned case-bound schema and matching Python/TypeScript canonical commitments; add local binding/replay/appeal/finality-status checks and shared vectors; refresh runtime and manual verification documentation.
+
+**Not implemented:** no production Court adjudication method, Registry/Evaluator contract call, child transaction, appeal disposition, runtime adapter or live deployment. Current CaseCourt continues to label its decision references unverified.
+
+**Exit criteria:** Python and TypeScript hashes match shared test vectors; adversarial binding/replay/finality checks pass locally; all eleven runtime capabilities have explicit status; user-facing steps are reproducible; production contract source is unchanged. Runtime gates remain open for Stage 3B.
 
 ### Stage 3 — CaseCourt deterministic lifecycle core
 

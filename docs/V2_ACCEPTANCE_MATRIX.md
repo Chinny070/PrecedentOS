@@ -59,6 +59,14 @@ This matrix carries every feature in the Stage 0 product brief across contract, 
 - Cached GenVM lint passed for all three contracts. The PowerShell read-only RPC attempt failed locally before receiving an RPC response; no Studio or live contract call was made.
 - Detailed authority, appeal and runtime status is in `V2_DECISION_AUTHORITY.md`, `V2_APPEAL_PROTOCOL.md`, `V2_RUNTIME_VERIFICATION.md`, and `V2_STAGE_2_REPORT.md`.
 
+## Stage 3A evidence snapshot
+
+- Stage 2 was committed as `9644d9915f1c122f326c81690a1b8959c65ae9dd`; GitHub acknowledged the normal push to `main`. An independent post-push remote SHA read was blocked by this host's GitHub socket restriction; no independent SHA match is claimed.
+- The selected design is CaseCourt-owned adjudication (Architecture B) with finalized child messages reserved for later finality-dependent effects. This is a design recommendation, not an enabled production method.
+- Pure Python and TypeScript case-bound schema/commitment helpers plus a shared fictional vector are **implemented and locally tested**. The Stage 3A full suite reports 119 passed/2 opt-in skips; frontend reports 39 tests passed. They are not contracts and cannot authenticate data from a chain.
+- User-reported historical `eth_chainId=0xf22f` is recorded as user-provided Studionet evidence. Codex did not retry its prior blocked socket call.
+- Runner mapping, two-contract runtime behavior, real validator consensus, finality, stable fee profile and Web Render remain blocked/not started. Full per-capability state is in `V2_STAGE_3A_REPORT.md` and `V2_RUNTIME_VERIFICATION.md`.
+
 ## Matrix closure rules
 
 1. Replace `Proposed` with `Implemented` only when code exists and method/schema links are recorded.
@@ -67,3 +75,4 @@ This matrix carries every feature in the Stage 0 product brief across contract, 
 4. Mark live verification complete only with stable chain ID, runner/SDK versions, deployed address, transaction IDs, finalized successful execution results, and direct readback. Do not use Studio-dev, localnet, or mocked data as Studionet evidence.
 5. For features intentionally client-only (counterfactuals, graph rendering), contract column must say “not applicable by design” rather than silently omitting the requirement; frontend/security/automated/live status still must be tracked.
 6. A live consensus result demonstrates protocol execution under its equivalence rule, not legal correctness.
+7. A locally valid case-decision schema/helper is not an authoritative decision. Only a runtime-verified immutable Court record plus the correct successful finalized transaction can support that label.

@@ -2,7 +2,7 @@
 
 **Status:** deterministic CaseCourt v1 implemented and locally validated. No contract is deployed.
 **Target network:** stable GenLayer Studionet (expected chain ID `61999`); live identity remains unverified.
-**Preservation:** Stage 0 commit `258549db81024468159cc45fcf329f109ce70de5` was pushed before Stage 1 edits. Stage 1 was later preserved in commit `c9e2b0ee0fee12f1337630141783f73507a92095`; `origin/main` was verified to match that SHA. Stage 2 changes are separate and remain uncommitted/unpushed.
+**Preservation:** Stage 0 commit `258549db81024468159cc45fcf329f109ce70de5` was pushed before Stage 1 edits. Stage 1 was later preserved in commit `c9e2b0ee0fee12f1337630141783f73507a92095`; Stage 2 was subsequently committed as `9644d9915f1c122f326c81690a1b8959c65ae9dd` and the normal push was acknowledged. An independent remote SHA read after that push was blocked by this host's GitHub socket restriction.
 
 ## 1. Scope and architecture conflicts found before implementation
 

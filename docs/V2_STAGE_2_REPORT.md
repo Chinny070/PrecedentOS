@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-13
 **Stage 1 preservation:** pushed commit `c9e2b0ee0fee12f1337630141783f73507a92095`; `git ls-remote origin refs/heads/main` returned the same SHA.
-**Stage 2 status:** safe appeal schema and authority labels implemented locally. Cross-contract authoritative verification, case deadlines/finality, native runtime integration and legal merits adjudication remain blocked. Stage 2 changes are uncommitted and unpushed, as requested.
+**Stage 2 status:** safe appeal schema and authority labels implemented locally. Cross-contract authoritative verification, case deadlines/finality, native runtime integration and legal merits adjudication remain blocked. Stage 2 was committed as `9644d9915f1c122f326c81690a1b8959c65ae9dd`; GitHub acknowledged a normal push to `main`. An immediate independent `git ls-remote` SHA read was blocked by this host's GitHub socket restriction.
 
 ## 1. Stage 1 preservation and baseline
 
@@ -103,7 +103,7 @@ The Stage 2 frontend changes are type-only; no UI page, runtime adapter, or writ
 - Modified: `contracts/case_court.py`, `tests/test_case_court.py`, `frontend/src/types/domain.ts`, `frontend/src/lib/genlayer/caseCourtTypes.ts`, `docs/V2_ACCEPTANCE_MATRIX.md`, `docs/V2_IMPLEMENTATION_MASTERPLAN.md`, and `docs/V2_STAGE_1_REPORT.md` (preservation status only).
 - Created: `docs/V2_APPEAL_PROTOCOL.md`, `docs/V2_DECISION_AUTHORITY.md`, `docs/V2_RUNTIME_VERIFICATION.md`, `docs/V2_STAGE_2_REPORT.md`.
 - Not modified: `contracts/precedent_registry.py`, `contracts/precedent_evaluator.py`, existing Registry/Evaluator tests and fixtures, existing frontend page behavior, `manual-deployment/`, or Stage 0/Stage 1 Git history.
-- Stage 2 work remains local, uncommitted and unpushed.
+- Stage 2 commit `9644d9915f1c122f326c81690a1b8959c65ae9dd` was pushed normally. The push output reported `main -> main`; the independent follow-up remote SHA query was blocked by this host's network policy.
 
 ## 8. Acceptance/status summary
 
@@ -121,4 +121,4 @@ Detailed row-level states are updated in `docs/V2_ACCEPTANCE_MATRIX.md`.
 
 ## 9. Recommendation
 
-**CONDITIONAL GO for Stage 3 only if its scope stays limited to deterministic, non-authoritative schema/UX or a supported local integration environment. NO-GO for trusted decision linking, deadline enforcement, appeal merits, Web Render, or production governance until the runner, two-contract views, case-bound decision schema, and finality callback are demonstrated.** No deployment, write transaction, Docker startup, wallet signature, package installation, commit or push occurred for Stage 2.
+**Stage 2 recommendation at completion:** CONDITIONAL GO for deterministic, non-authoritative schema/UX or a supported local integration environment. NO-GO for trusted decision linking, deadline enforcement, appeal merits, Web Render or production governance until the runner, two-contract views, case-bound decision schema and finality callback are demonstrated. At the time Stage 2 implementation ended, no deployment, write transaction, Docker startup, wallet signature, package installation, commit or push had occurred. The later Stage 3A preservation pass committed/pushed Stage 2 as described above.

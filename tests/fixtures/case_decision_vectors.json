@@ -1,0 +1,35 @@
+{
+  "notice": "Fictional deterministic encoding vector only; it is not a Studionet record or deployed contract result.",
+  "case_id": "FICT-CASE-0001",
+  "references": [
+    {
+      "sequence": 1,
+      "evidence_id": "FICT-EVIDENCE-1",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "schema_version": 1,
+      "source_reference_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "sequence": 2,
+      "evidence_id": "FICT-EVIDENCE-2",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "schema_version": 1,
+      "source_reference_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "case_evidence_commitment": "3f91c3c17897fa315ff085fb8720fbce111c95d844da850d5c5149023888824f",
+  "decision_id": "FICT-DECISION-0001",
+  "chain_id": 61999,
+  "case_version": 7,
+  "policy_version": 1,
+  "criteria_version": 1,
+  "criteria_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "decision_schema_version": 1,
+  "court_address": "0x1111111111111111111111111111111111111111",
+  "input_commitment": "cdc11201f294bd46a2140efa7dcdf95816642698b6ff0a822a817dad784d9b1b",
+  "classification": "CONTRADICTED",
+  "recommended_outcome": "REMAND",
+  "evidence_sufficient": true,
+  "reasons_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "result_digest": "6dc94382ce5dcaa8c64d7b24dcb5883a60ad4bbc628a1be979b67077960f231d"
+}
