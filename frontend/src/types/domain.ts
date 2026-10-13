@@ -11,7 +11,10 @@ export type CaseCourtPhase =
   | 'EVIDENCE_LOCKED'
   | 'DECISION_RECORDED'
   | 'CHALLENGE_OPEN'
-  | 'FROZEN';
+  | 'FROZEN'
+  | 'APPEAL_RESOLVED'
+  | 'REMANDED_REVIEW'
+  | 'CLOSED';
 
 export interface CaseCourtSnapshot {
   case_id: string;
@@ -27,8 +30,27 @@ export interface CaseCourtSnapshot {
   opening_evidence_digest: string;
   decision_ref_id: string;
   decision_digest: string;
+  operative_decision_id: string;
+  operative_decision_kind: 'NONE' | 'JUDGMENT' | 'UNVERIFIED_REFERENCE' | 'APPELLATE_RULING';
+  operative_decision_digest: string;
   decision_submitter: `0x${string}`;
-  decision_authority: 'UNVERIFIED_CALLER_ASSERTION';
+  decision_authority:
+    | 'UNVERIFIED_CALLER_ASSERTION'
+    | 'CASE_COURT_EP_ACCEPTED_REQUIRES_FINALITY'
+    | 'APPELLATE_EP_ACCEPTED_REQUIRES_FINALITY'
+    | 'APPELLATE_REMAND_REQUIRES_NEW_JUDGMENT';
+  active_appeal_id: string;
+  last_resolved_appeal_id: string;
+  appeal_count: string;
+  appeal_freeze: 'true' | 'false';
+  appeal_freeze_reason: string;
+  appeal_freeze_digest: string;
+  freeze_reason_digest: string;
+  operative_ruling_id: string;
+  superseded_judgment_id: string;
+  remand_from_appeal: string;
+  closure_requested_by: string;
+  case_closed: 'true' | 'false';
   challenge_id: string;
   frozen: 'true' | 'false';
   freeze_used: 'true' | 'false';
@@ -51,6 +73,102 @@ export interface CaseCourtAppealFiling {
   grounds_code: string;
   grounds_digest: string;
   new_evidence_commitment: string;
+  recorded_at: string;
+}
+
+export type CaseCourtAppealStatus =
+  | 'PENDING_ADJUDICATION'
+  | 'REVIEW_READY'
+  | 'PENDING_RESOLUTION'
+  | 'RESOLVED';
+
+export type CaseCourtAppealOutcome =
+  | 'UPHELD'
+  | 'REVERSED'
+  | 'REMANDED'
+  | 'DISMISSED'
+  | 'INSUFFICIENT_EVIDENCE';
+
+export interface CaseCourtAppeal {
+  appeal_id: string;
+  case_id: string;
+  schema_version: '1';
+  level: '1' | '2';
+  parent_appeal_id: string;
+  target_kind: 'JUDGMENT' | 'APPELLATE_RULING';
+  target_id: string;
+  target_version: string;
+  target_commitment: string;
+  original_judgment_id: string;
+  original_judgment_version: string;
+  original_judgment_commitment: string;
+  appellant: `0x${string}`;
+  grounds_code: string;
+  grounds_digest: string;
+  filing_commitment: string;
+  appeal_evidence_count: string;
+  appeal_evidence_ids: string;
+  appeal_evidence_root: string;
+  appeal_evidence_locked: 'true' | 'false';
+  criteria_version: string;
+  criteria_digest: string;
+  status: CaseCourtAppealStatus;
+  outcome: CaseCourtAppealOutcome | '';
+  ruling_commitment: string;
+  filed_at: string;
+  last_case_version: string;
+  resolved_at: string;
+}
+
+export interface CaseCourtAppealEvidenceReference {
+  appeal_id: string;
+  case_id: string;
+  evidence_id: string;
+  digest: string;
+  schema_version: string;
+  source_reference_digest: string;
+  submitter: `0x${string}`;
+  sequence: string;
+  recorded_at: string;
+}
+
+export type AppellateCaseStateChange =
+  | 'NONE'
+  | 'SUPERSEDE'
+  | 'REOPEN_REVIEW'
+  | 'DISMISS_APPEAL'
+  | 'NONFINAL_REOPEN';
+
+export interface CaseCourtAppellateRuling {
+  ruling_id: string;
+  appeal_id: string;
+  case_id: string;
+  chain_id: string;
+  court_address: `0x${string}`;
+  case_version: string;
+  original_judgment_id: string;
+  original_judgment_version: string;
+  original_judgment_commitment: string;
+  evidence_commitment: string;
+  appeal_evidence_commitment: string;
+  criteria_version: string;
+  criteria_digest: string;
+  appellate_schema_version: '1';
+  appeal_level: string;
+  input_commitment: string;
+  ruling_commitment: string;
+  outcome: CaseCourtAppealOutcome;
+  original_judgment_valid: 'true' | 'false';
+  material_error_found: 'true' | 'false';
+  evidence_sufficient: 'true' | 'false';
+  reversal_justified: 'true' | 'false';
+  remand_required: 'true' | 'false';
+  case_state_change: AppellateCaseStateChange;
+  applicable_criteria_json: string;
+  material_findings_json: string;
+  reasoning_summary: string;
+  submitter: `0x${string}`;
+  authority_status: 'APPELLATE_EP_ACCEPTED_REQUIRES_FINALITY';
   recorded_at: string;
 }
 

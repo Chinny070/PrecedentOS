@@ -1,6 +1,12 @@
 # PrecedentOS 2.0 — Case Appeal Protocol
 
-**Protocol status:** versioned Stage 2 filing schema implemented for a first-level challenge. Admission deadlines, merits decisions, higher appeals and case finality are design-only because decision authority and finality anchoring are unverified. A PrecedentOS case appeal is separate from GenLayer's native appeal of a transaction.
+**Protocol status:** Stage 4 locally implements bounded two-level CaseCourt appeal filings, AI-assisted appellate assessment, five outcomes, automatic CaseCourt freeze and bilateral application closure. Direct Mode uses mocked AI/validator outputs. Stable runner behavior, real consensus/rollback, deadlines, native transaction finality, independent reviewer governance, and exceptional review remain unverified/not implemented. A PrecedentOS case appeal is separate from GenLayer's native appeal of a transaction.
+
+## Stage 4 implementation update
+
+The implemented method sequence is `file_appeal` → appellant-only appeal evidence append/lock → non-appellant `begin_appeal_review` and `adjudicate_appeal` → participant `resolve_appeal`. The filing binds either the current exact CaseCourt judgment (level 1) or the last resolved level-1 ruling (level 2). An admitted filing freezes CaseCourt until resolution. Review evidence is byte-checked against ordered immutable digests. The accepted appeal ruling is stored in an immutable record and checked again before its outcome is applied. At most two filings are allowed per case. Full methods, outcome semantics and statuses are in `V2_APPEAL_COURT_IMPLEMENTATION.md`.
+
+Invalid admission criteria reject by transaction revert before storage mutation; the failed transaction is not represented as an on-chain appeal rejection event. The non-appellant participant is the review caller in this prototype; there is no separate panel/DAO role. No appeal deadline is used. A stalled/failed nondeterministic review leaves the admitted appeal active and frozen; liveness recovery needs policy review.
 
 ## Roles and terminology
 

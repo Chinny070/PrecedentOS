@@ -115,3 +115,19 @@ The current docs' v2 GenLayerJS fee/deploy examples and matching Studio-dev rele
 | CaseCourt judgment state, stable finality, cost | **BLOCKED** | No deployment, local Studio test, live receipt, current stable runner mapping or fee profile. |
 
 The installed GenLayer Python SDK package was not importable as a normal host Python module (`ModuleNotFoundError: genlayer`); Direct Mode loads the contract under its extracted test runtime. Cached GenVM lint passed CaseCourt and reported the cached runner hash `py-genlayer:babwp9t37jw9g4j2bccgn14g6x7x9s1f7dsmh7emvz735pz4zxa0`; upstream runner resolution was blocked by Windows socket error 10013. These checks do not prove current stable Studionet compatibility. See `V2_STAGE_3B_REPORT.md` for exact commands and test counts.
+
+## Stage 4 appellate runtime status (2026-10-13)
+
+Current official [LLM](https://docs.genlayer.com/developers/intelligent-contracts/features/calling-llms), [Equivalence Principle](https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle), and [non-determinism](https://docs.genlayer.com/developers/intelligent-contracts/features/non-determinism) pages were rechecked for Stage 4. They describe JSON `gl.nondet.exec_prompt`, `gl.vm.run_nondet_unsafe`, a `gl.vm.Return` leader result, validators independently checking decision fields, and keeping storage writes outside nondeterministic functions until the result returns.
+
+| Stage 4 property | Evidence | Status |
+|---|---|---|
+| Appellate nondeterministic API pattern | Current official docs plus source; test harness accepts the shape. | **IMPLEMENTED / LOCALLY TESTED (mocked)** |
+| Decision-field custom EP | Validator compares outcome, validity/error, evidence sufficiency, reversal/remand/state and criteria. | **IMPLEMENTED / LOCALLY TESTED (mocked)** |
+| Stable runner compatibility | Existing `genvm-lint` upstream lookup remains blocked by WinError 10013; cached artifacts do not establish stable runner identity. | **BLOCKED** |
+| Actual validator disagreement and failed execution | No local GenLayer Studio/node available; Direct Mode callback tests are mocks. | **BLOCKED** |
+| Rollback of stored state on rejected EP | Not established by Direct Mode. | **BLOCKED** |
+| Transaction receipt/finality or timestamp-based appeal deadlines | No transaction submitted; Stage 4 adds no appeal deadlines. | **NOT STARTED / BLOCKED** |
+| Studionet deployment or appeal transaction | None performed. | **NOT STARTED** |
+
+The verified documentation API pattern is not proof that this specific CaseCourt source passes the current stable runner or its resource limits. See `V2_STAGE_4_REPORT.md` and `V2_APPELLATE_EQUIVALENCE.md`.

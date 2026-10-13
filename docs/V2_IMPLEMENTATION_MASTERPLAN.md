@@ -1,8 +1,8 @@
 # PrecedentOS 2.0 Implementation Masterplan
 
-**Current stage:** Stage 3B CaseCourt-owned AI judgment implementation is locally complete; stable runtime, live validator consensus, finality, cost and legal-policy gates remain open. Stage 3A was preserved in commit `6609b63` and normally pushed to origin/main.
+**Current stage:** Stage 4 CaseCourt appellate lifecycle is implemented locally and undergoing full regression; stable runtime, live validator consensus, finality, cost and legal-policy gates remain open.
 **Target:** stable GenLayer Studionet, expected chain ID `61999`.
-**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 3B commit/push.
+**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 4 commit/push.
 
 ### Stage 2 execution note (2026-10-13)
 
@@ -14,7 +14,7 @@ Stage 2 was committed as `9644d9915f1c122f326c81690a1b8959c65ae9dd` and a normal
 
 ### Stage 3B execution note (2026-10-13)
 
-Stage 3B added CaseCourt lock-time ordered evidence commitments, bounded `adjudicate_case` and `get_judgment`, custom Equivalence Principle comparisons, SHA-bound input/result records, and appeal filing bindings. Full evidence text is not persisted. Frontend changes are type/interface only; no active write control was added. Direct Mode tests mock model/validator outputs, and cached GenVM lint passes, but this host cannot resolve the authoritative stable runner. This is not live consensus or finality verification. Stage 3B changes remain uncommitted/unpushed. See the Stage 3B report and schema/EP/security documents.
+Stage 3B added CaseCourt lock-time ordered evidence commitments, bounded `adjudicate_case` and `get_judgment`, custom Equivalence Principle comparisons, SHA-bound input/result records, and appeal filing bindings. These changes were preserved and normally pushed with acknowledgement at commit `37676fb9ad2cf7fee64dcf02fb8fe59e1a1a8abd`. Full evidence text is not persisted. Direct Mode tests mock model/validator outputs, and cached GenVM lint passes, but the authoritative stable runner remains unresolved. This is not live consensus or finality verification. Stage 4 changes remain uncommitted and unpushed. See the Stage 3B report and Stage 4 documents.
 
 ## 1. Dependency graph
 
@@ -74,11 +74,13 @@ Do not implement dependent features around an unverified call path. Existing Reg
 
 **Exit criteria:** tests cover every allowed transition and every unauthorized/invalid/replay/stale/oversize path; before/after persistent state equality on rejection; frozen-state test enumerates every state-changing method; test all appeal levels, exceptional review and reversed/superseded history; no mutation/delete method; GenVM lint and selected runtime integration pass. Case clock begins only through the Stage 1-proven finality anchor.
 
-### Stage 4 — AI case rulings, contradiction challenges, and appeal judgments
+### Stage 4 — AI appellate review, appeal enforcement, and case closure (implemented locally; runtime gates open)
 
-**Scope:** bounded `gl.nondet.exec_prompt` tasks and custom validator using `gl.vm.run_nondet_unsafe`; decision schema for first-instance and appellate assessment; evidence ID grounding; criteria/prompt version commitments; independent validator decision fields. Keep existing pairwise Evaluator unchanged unless a specific additive reason is approved.
+**Implemented:** admitted appeals bind the current exact case judgment/ruling, automatically freeze CaseCourt, append bounded appeal evidence and review actions, use a ten-field appellate schema and independent `gl.nondet.exec_prompt` custom validator, append immutable ruling commitments, and deterministically apply five dispositions. Two bounded appeal levels, bilateral case closure and explicit remand are supported. Frontend additions are typed boundaries and cross-language commitment helpers only; appeal writes remain gated.
 
-**Exit criteria:** tests include correct/incorrect-but-valid JSON, classification mismatch, each decision field mismatch, rationale-only variation, prompt injection, malformed output, missing evidence, digest mismatch, model/validator exception, timeout, size caps, replay, and state unchanged on rejection. Real local integration must show validator-side disagreement rejects/no successful state write. Studionet later proves a real AI task and consensus lifecycle, not legal correctness.
+**Locally tested:** fictional Direct Mode flows, all five outcome mappings, two-level cap, identity/version/root/commitment checks, evidence byte validation, invalid JSON/contradictions, unauthorized writers/reviewers, replay, attempted unfreeze, state preservation on deterministic rejection, immutable ruling/judgment checks and Python/TypeScript commitment vectors. These are mocked Direct Mode results, not consensus evidence.
+
+**BLOCKED:** exact stable GenVM runner, actual validator disagreement behavior, failed-execution rollback, Studionet transaction lifecycle/finality, cost/size profile, liveness recovery policy and independent legal/due-process review. See `V2_STAGE_4_REPORT.md` and four focused implementation/security documents.
 
 ### Stage 5 — GenLayer Web Render evidence
 

@@ -1,0 +1,47 @@
+{
+  "description": "Cross-language v1 commitment test data; fictional values only.",
+  "case_id": "FICT-APPEAL-CASE-1",
+  "appeal_id": "FICT-APPEAL-1",
+  "target_id": "FICT-JUDGMENT-1",
+  "target_version": 7,
+  "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "appellant": "0x1111111111111111111111111111111111111111",
+  "grounds_code": "MATERIAL_ERROR",
+  "grounds_text": "Fictional appellate grounds.",
+  "grounds_digest": "fc91fb4cb5ca949a3ecedb77d28658f29ac887e0f7d0f470c293fe7ef28e8081",
+  "criteria_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "appeal_evidence": [
+    {
+      "evidence_id": "FICT-APPEAL-EVIDENCE-1",
+      "digest": "fda8d7f30d9f8c8f7924641742010d0ea52b43a65e6ba9df074269d9fe5e80b4",
+      "schema_version": 1,
+      "source_reference_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "filing_commitment": "b091700f4026465775a94685b451b75cb775a998bae09d8af8fb85a6b05dba06",
+  "appeal_evidence_commitment": "1ce4c9e0d1cbfda2306ac67aa2f455d550396c1364bc5335856e30459b756ae3",
+  "chain_id": 61999,
+  "court_address": "0x2222222222222222222222222222222222222222",
+  "case_version": 9,
+  "original_evidence_commitment": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "appeal_input_commitment": "a56e0a67e419e1b9c91962c638a42cb8ab57b6642019f14e20662cc31c559df9",
+  "result": {
+    "outcome": "UPHELD",
+    "original_judgment_valid": true,
+    "material_error_found": false,
+    "evidence_sufficient": true,
+    "reversal_justified": false,
+    "remand_required": false,
+    "case_state_change": "NONE",
+    "applicable_criteria": [
+      "JUDGMENT_VALIDITY",
+      "EVIDENCE_SUFFICIENCY"
+    ],
+    "material_findings": [
+      "The original fictional judgment remains supported."
+    ],
+    "reasoning_summary": "Fictional appellate review found no material error."
+  },
+  "ruling_schema_version": 1,
+  "ruling_commitment": "bb3371fb0d3cd6f88b6eb98f56281c297f270be6c2695ba0dd2a79adcf3924ab"
+}

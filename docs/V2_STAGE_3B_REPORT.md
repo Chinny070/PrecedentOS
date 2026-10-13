@@ -5,6 +5,8 @@
 **Scope:** CaseCourt-owned bounded AI judgment, custom Equivalence Principle checks, input/result binding, appeal linkage, typed frontend boundary.
 **Git:** Stage 3A commit `6609b63` was pushed normally to `origin/main` with GitHub acknowledging `9644d99..6609b63 main -> main`. The independent remote SHA query was not repeated; the previous host restriction blocked direct GitHub reads. Stage 3B changes are uncommitted and unpushed.
 
+**Preservation update:** The Stage 3B source and report were subsequently verified and preserved on `main` in commit `37676fb9ad2cf7fee64dcf02fb8fe59e1a1a8abd`, with a normal `origin/main` push acknowledged as up to date. Stage 4 edits are separate and remain uncommitted/unpushed.
+
 ## Result summary
 
 Stage 3B implementation is present and locally tested. It is **not** live verified. GenLayer official documentation confirms the API pattern used, but the host could not resolve the current runner mapping and the existing Direct Mode harness mocks AI/validator behavior. No Docker, Studio, deployment, wallet signature, Studionet read/write transaction, package installation, or dependency update was used. Existing Registry/Evaluator production contracts were not modified. The pre-existing `manual-deployment/` folder was not touched or staged.

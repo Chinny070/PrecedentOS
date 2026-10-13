@@ -1,5 +1,7 @@
 # PrecedentOS 2.0 Case State Machine
 
+> **Stage 4 implementation note:** The transitions below originally described the intended complete lifecycle. The locally implemented subset and its actual method names/statuses are captured in `V2_APPEAL_COURT_IMPLEMENTATION.md`. In particular, there are no time-based appeal windows, finalized callbacks, exceptional-review stage or network-wide freeze. Direct Mode coverage does not prove live validator consensus or rollback.
+
 **Status:** proposed protocol behavior; transitions are not implemented or runtime-proven.
 **Critical distinction:** a PrecedentOS case phase is application state. A GenLayer transaction has its own consensus, appeal, and finalization lifecycle. Both must be shown independently.
 
