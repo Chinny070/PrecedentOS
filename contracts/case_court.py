@@ -9,6 +9,7 @@ from genlayer import *
 SUPPORTED_CASE_SCHEMA_VERSION = u32(1)
 SUPPORTED_POLICY_VERSION = u32(1)
 SUPPORTED_EVIDENCE_SCHEMA_VERSION = u32(1)
+APPEAL_SCHEMA_VERSION = u32(1)
 MAX_CASES = u32(100000)
 MAX_ACTIONS = u32(1000000)
 MAX_ACTIONS_PER_CASE = u32(128)
@@ -25,6 +26,9 @@ CASE_PHASE_EVIDENCE_LOCKED = "EVIDENCE_LOCKED"
 CASE_PHASE_DECISION_RECORDED = "DECISION_RECORDED"
 CASE_PHASE_CHALLENGE_OPEN = "CHALLENGE_OPEN"
 CASE_PHASE_FROZEN = "FROZEN"
+
+DECISION_AUTHORITY_UNVERIFIED = "UNVERIFIED_CALLER_ASSERTION"
+APPEAL_STATUS_FILED_UNADJUDICATED = "FILED_UNADJUDICATED"
 
 CHALLENGE_GROUNDS = (
     "NEW_EVIDENCE",
@@ -94,6 +98,7 @@ class CaseCourt(gl.Contract):
             "decision_ref_id": "",
             "decision_digest": "",
             "decision_submitter": ZERO_ADDRESS.as_hex,
+            "decision_authority": DECISION_AUTHORITY_UNVERIFIED,
             "challenge_id": "",
             "frozen": False,
             "freeze_used": False,
@@ -218,6 +223,10 @@ class CaseCourt(gl.Contract):
         snapshot["decision_ref_id"] = decision_ref_id
         snapshot["decision_digest"] = decision_digest
         snapshot["decision_submitter"] = gl.message.sender_address.as_hex
+        # The current Evaluator stores pair-comparison results, not a case-bound
+        # ruling. Until an authorized, runtime-verified IC view path can validate
+        # Registry/Evaluator identity and case evidence, this remains an assertion.
+        snapshot["decision_authority"] = DECISION_AUTHORITY_UNVERIFIED
         snapshot["phase"] = CASE_PHASE_DECISION_RECORDED
         snapshot["version"] += 1
         snapshot = self._append_action(
@@ -268,11 +277,29 @@ class CaseCourt(gl.Contract):
         snapshot["challenge_id"] = challenge_id
         snapshot["phase"] = CASE_PHASE_CHALLENGE_OPEN
         snapshot["version"] += 1
+        appeal_record = {
+            "appeal_id": challenge_id,
+            "case_id": case_id,
+            "schema_version": int(APPEAL_SCHEMA_VERSION),
+            "level": 1,
+            "parent_appeal_id": "",
+            "status": APPEAL_STATUS_FILED_UNADJUDICATED,
+            "appellant": gl.message.sender_address.as_hex,
+            "decision_ref_id": snapshot["decision_ref_id"],
+            "decision_digest": decision_digest,
+            "grounds_code": grounds_code,
+            "grounds_digest": grounds_digest,
+            # A digest is only a commitment supplied by the party; no bytes or
+            # external source are fetched or authenticated in this version.
+            "new_evidence_commitment": grounds_digest if grounds_code == "NEW_EVIDENCE" else "",
+            "recorded_at": self._now_iso(),
+        }
         snapshot = self._append_action(
             snapshot, action_id, "DECISION_CHALLENGED", gl.message.sender_address,
             expected_version, payload_digest, challenge_id
         )
         self.records[self._challenge_key(challenge_id)] = "1"
+        self.records[self._appeal_key(challenge_id)] = self._encode(appeal_record)
         self.records[self._case_key(case_id)] = self._encode(snapshot)
 
     @gl.public.write
@@ -376,6 +403,18 @@ class CaseCourt(gl.Contract):
             return {}
         reference = self._decode(self.records[key])
         return {name: str(value) for name, value in reference.items()}
+
+    @gl.public.view
+    def get_appeal(self, appeal_id: str) -> dict[str, str]:
+        self._validate_id(appeal_id, MAX_ACTION_ID_LENGTH, "invalid appeal identifier")
+        key = self._appeal_key(appeal_id)
+        if key not in self.records:
+            return {}
+        appeal = self._decode(self.records[key])
+        return {
+            name: ("true" if value else "false") if isinstance(value, bool) else str(value)
+            for name, value in appeal.items()
+        }
 
     @gl.public.view
     def get_case_action(self, case_id: str, case_sequence: u32) -> dict[str, str]:
@@ -524,6 +563,9 @@ class CaseCourt(gl.Contract):
 
     def _challenge_key(self, challenge_id: str) -> str:
         return "Q:" + challenge_id
+
+    def _appeal_key(self, appeal_id: str) -> str:
+        return "P:" + appeal_id
 
     def _same_address(self, left: str, right: str) -> bool:
         return left.lower() == right.lower()

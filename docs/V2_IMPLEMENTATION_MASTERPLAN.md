@@ -1,8 +1,12 @@
 # PrecedentOS 2.0 Implementation Masterplan
 
-**Current stage:** Stage 0 architecture blueprint. This pass creates design documents only.
+**Current stage:** Stage 2 governance/appeal schema and runtime verification completed with explicit blockers. Stage 1 was committed and pushed; Stage 2 changes remain uncommitted/unpushed.
 **Target:** stable GenLayer Studionet, expected chain ID `61999`.
-**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, transaction, dependency install, or push without separate authorization.
+**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 2 push.
+
+### Stage 2 execution note (2026-10-13)
+
+Stage 1 CaseCourt is preserved at commit `c9e2b0ee0fee12f1337630141783f73507a92095` on `origin/main`. Stage 2 added a first-level immutable `FILED_UNADJUDICATED` appeal filing and explicit `UNVERIFIED_CALLER_ASSERTION` decision provenance. Current official docs describe IC view calls and finalized child messages, but no cross-contract runtime test or finality callback was available. The existing Evaluator has no case ID/evidence-root binding. The Windows read-only Studionet RPC request was denied at the local socket layer; prior user-reported `0xf22f` remains a user observation, not a result from this run. Full details: `V2_STAGE_2_REPORT.md`, `V2_DECISION_AUTHORITY.md`, `V2_APPEAL_PROTOCOL.md`, and `V2_RUNTIME_VERIFICATION.md`.
 
 ## 1. Dependency graph
 
@@ -33,6 +37,8 @@ Do not implement dependent features around an unverified call path. Existing Reg
 **Exit criteria:** (1) stable RPC returns chain 61999, or blocker recorded without retry loops; (2) a release artifact maps the chosen GenVM runner to stable Studionet; (3) selected SDK can encode/decode required calls and transaction lifecycle; (4) no stable-vs-Studio-dev mix; (5) fee/appeal charge method and estimate path are version-verified; (6) cross-contract view returns existing/missing records in a two-contract integration probe; (7) a finalized callback to the owning case contract is demonstrated or replaced with another proofable design; (8) Web Render returns known fixture output under exact runner, with output/URL/timeout bounds. Any item unavailable stays blocked and dependent production features do not proceed.
 
 ### Stage 2 — Contract schema and bounded cost design
+
+**Execution status:** partially completed. The first-level appeal filing schema and explicit unverified-decision marker are implemented and locally tested. Full cost profiling, Registry/Evaluator trusted-address configuration, a case-bound decision schema, multi-level transitions, and finality anchoring remain blocked/not started. See the Stage 2 report and acceptance matrix.
 
 **Scope:** finalize Registry v2 pagination/relation requirements and CaseCourt state/action schemas; fix canonical encoding, evidence/URL bounds, policy versioning, IDs, counters, reading cursors, query cost and transaction fee profiles. Do not alter v1 Registry/Evaluator unless a reviewed additive version is needed.
 

@@ -28,12 +28,30 @@ export interface CaseCourtSnapshot {
   decision_ref_id: string;
   decision_digest: string;
   decision_submitter: `0x${string}`;
+  decision_authority: 'UNVERIFIED_CALLER_ASSERTION';
   challenge_id: string;
   frozen: 'true' | 'false';
   freeze_used: 'true' | 'false';
   frozen_by: `0x${string}`;
   freeze_until: string;
   opened_at: string;
+}
+
+/** First-level filing only; it has no adjudicated result or deadline status. */
+export interface CaseCourtAppealFiling {
+  appeal_id: string;
+  case_id: string;
+  schema_version: '1';
+  level: '1';
+  parent_appeal_id: '';
+  status: 'FILED_UNADJUDICATED';
+  appellant: `0x${string}`;
+  decision_ref_id: string;
+  decision_digest: string;
+  grounds_code: string;
+  grounds_digest: string;
+  new_evidence_commitment: string;
+  recorded_at: string;
 }
 
 export interface CaseCourtEvidenceReference {

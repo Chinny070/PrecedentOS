@@ -1,5 +1,6 @@
 import type {
   CaseCourtAction,
+  CaseCourtAppealFiling,
   CaseCourtEvidenceReference,
   CaseCourtSnapshot,
 } from '../../types/domain';
@@ -56,6 +57,7 @@ export interface CaseCourtReadPort {
   has_case(caseId: string): Promise<boolean>;
   get_case(caseId: string): Promise<CaseCourtSnapshot | Record<string, never>>;
   get_evidence(caseId: string, evidenceId: string): Promise<CaseCourtEvidenceReference | Record<string, never>>;
+  get_appeal(appealId: string): Promise<CaseCourtAppealFiling | Record<string, never>>;
   get_case_action(caseId: string, caseSequence: number): Promise<CaseCourtAction | Record<string, never>>;
   get_case_action_count(caseId: string): Promise<number | bigint>;
   get_case_count(): Promise<number | bigint>;

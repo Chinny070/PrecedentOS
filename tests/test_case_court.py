@@ -308,9 +308,48 @@ def test_lock_and_decision_reference_are_authorized_and_immutable(direct_vm, dir
     assert decided["phase"] == "DECISION_RECORDED"
     assert decided["decision_ref_id"] == "FICT-RESULT-1"
     assert decided["decision_digest"] == DIGEST_C
+    assert decided["decision_authority"] == "UNVERIFIED_CALLER_ASSERTION"
     with direct_vm.expect_revert("decision reference cannot be attached from this state"):
         contract.attach_decision_reference("FICT-CASE-0001", 4, "ACTION-DECISION-2", "FICT-RESULT-2", DIGEST_B)
     assert contract.get_case("FICT-CASE-0001") == decided
+
+
+def test_caller_supplied_decision_reference_is_never_reported_as_authoritative(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    contract = direct_deploy(str(CONTRACT))
+    open_case(contract, direct_vm, direct_alice, direct_bob)
+    append_evidence(contract, direct_vm, direct_alice)
+    contract.lock_evidence("FICT-CASE-0001", 2, "ACTION-LOCK-1")
+
+    # No Registry/Evaluator view call occurs in this contract. A well-formed
+    # fake ID and digest therefore remain explicitly marked as an assertion.
+    contract.attach_decision_reference(
+        "FICT-CASE-0001", 3, "ACTION-DECISION-1", "FAKE-MISSING-EVALUATION", DIGEST_C
+    )
+    case = contract.get_case("FICT-CASE-0001")
+    assert case["decision_ref_id"] == "FAKE-MISSING-EVALUATION"
+    assert case["decision_digest"] == DIGEST_C
+    assert contract.get_evidence("FICT-CASE-0001", "FICT-EVIDENCE-1")["digest"] == DIGEST_A
+    assert case["decision_authority"] == "UNVERIFIED_CALLER_ASSERTION"
+    assert contract.get_appeal("FAKE-MISSING-EVALUATION") == {}
+
+
+def test_nonparticipant_cannot_bind_decision_and_rejection_preserves_state(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie
+):
+    contract = direct_deploy(str(CONTRACT))
+    open_case(contract, direct_vm, direct_alice, direct_bob)
+    append_evidence(contract, direct_vm, direct_alice)
+    contract.lock_evidence("FICT-CASE-0001", 2, "ACTION-LOCK-1")
+    before = state_and_history(contract)
+
+    direct_vm.sender = direct_charlie
+    with direct_vm.expect_revert("caller is not a case participant"):
+        contract.attach_decision_reference(
+            "FICT-CASE-0001", 3, "ACTION-DECISION-1", "FICT-RESULT-1", DIGEST_C
+        )
+    assert state_and_history(contract) == before
 
 
 def test_only_other_named_party_can_challenge_exact_decision_once(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
@@ -348,6 +387,16 @@ def test_only_other_named_party_can_challenge_exact_decision_once(direct_vm, dir
     challenged = contract.get_case("FICT-CASE-0001")
     assert challenged["phase"] == "CHALLENGE_OPEN"
     assert challenged["challenge_id"] == "FICT-CHALLENGE-1"
+    appeal = contract.get_appeal("FICT-CHALLENGE-1")
+    assert appeal["appeal_id"] == "FICT-CHALLENGE-1"
+    assert appeal["schema_version"] == "1"
+    assert appeal["level"] == "1"
+    assert appeal["parent_appeal_id"] == ""
+    assert appeal["status"] == "FILED_UNADJUDICATED"
+    assert appeal["appellant"].lower() == ("0x" + bytes(direct_bob).hex()).lower()
+    assert appeal["decision_ref_id"] == "FICT-RESULT-1"
+    assert appeal["grounds_code"] == "MATERIAL_ERROR"
+    assert appeal["new_evidence_commitment"] == ""
     before_duplicate = state_and_history(contract)
     with direct_vm.expect_revert("decision cannot be challenged from this state"):
         contract.challenge_decision(
@@ -355,6 +404,56 @@ def test_only_other_named_party_can_challenge_exact_decision_once(direct_vm, dir
             DIGEST_C, "MATERIAL_ERROR", DIGEST_A
         )
     assert state_and_history(contract) == before_duplicate
+    assert contract.get_appeal("FICT-CHALLENGE-2") == {}
+
+
+def test_new_evidence_appeal_stores_only_the_supplied_commitment(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    contract = direct_deploy(str(CONTRACT))
+    prepare_decision(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.sender = direct_bob
+    contract.challenge_decision(
+        "FICT-CASE-0001", 4, "ACTION-CHALLENGE-1", "FICT-CHALLENGE-1",
+        DIGEST_C, "NEW_EVIDENCE", DIGEST_B,
+    )
+    appeal = contract.get_appeal("FICT-CHALLENGE-1")
+    assert appeal["grounds_digest"] == DIGEST_B
+    assert appeal["new_evidence_commitment"] == DIGEST_B
+    # This field is a party-supplied digest, not verified evidence bytes.
+    assert appeal["status"] == "FILED_UNADJUDICATED"
+
+
+@pytest.mark.parametrize(
+    "grounds_code,grounds_digest,error",
+    [
+        ("FORGED_GROUND", DIGEST_B, "unsupported challenge grounds"),
+        ("NEW_EVIDENCE", "not-a-sha256-digest", "invalid challenge grounds commitment"),
+    ],
+)
+def test_malformed_appeal_grounds_reject_without_state_change(
+    direct_vm, direct_deploy, direct_alice, direct_bob, grounds_code, grounds_digest, error
+):
+    contract = direct_deploy(str(CONTRACT))
+    prepare_decision(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.sender = direct_bob
+    before = state_and_history(contract)
+
+    with direct_vm.expect_revert(error):
+        contract.challenge_decision(
+            "FICT-CASE-0001", 4, "ACTION-CHALLENGE-1", "FICT-CHALLENGE-1",
+            DIGEST_C, grounds_code, grounds_digest,
+        )
+
+    assert state_and_history(contract) == before
+    assert contract.get_appeal("FICT-CHALLENGE-1") == {}
+
+
+def test_appeal_read_rejects_malformed_identifier_and_missing_appeal_is_empty(direct_vm, direct_deploy):
+    contract = direct_deploy(str(CONTRACT))
+    assert contract.get_appeal("FICT-APPEAL-404") == {}
+    with direct_vm.expect_revert("invalid appeal identifier"):
+        contract.get_appeal("bad/id")
 
 
 def test_freeze_requires_challenge_is_bounded_and_unfreeze_is_authorized(

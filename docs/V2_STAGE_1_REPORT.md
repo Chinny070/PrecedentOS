@@ -2,7 +2,7 @@
 
 **Status:** deterministic CaseCourt v1 implemented and locally validated. No contract is deployed.
 **Target network:** stable GenLayer Studionet (expected chain ID `61999`); live identity remains unverified.
-**Stage 0 preservation:** commit `258549db81024468159cc45fcf329f109ce70de5` was pushed to `origin/main` and the remote `main` SHA was verified before Stage 1 edits. Stage 1 changes are uncommitted and unpushed.
+**Preservation:** Stage 0 commit `258549db81024468159cc45fcf329f109ce70de5` was pushed before Stage 1 edits. Stage 1 was later preserved in commit `c9e2b0ee0fee12f1337630141783f73507a92095`; `origin/main` was verified to match that SHA. Stage 2 changes are separate and remain uncommitted/unpushed.
 
 ## 1. Scope and architecture conflicts found before implementation
 
@@ -94,7 +94,7 @@ The test/lint tuple observed locally is `genlayer-test==0.29.2`, `genlayer-py==0
 
 ## 6. Preservation and side effects
 
-- `contracts/precedent_registry.py`, `contracts/precedent_evaluator.py`, all prior tests/fixtures/reports, frontend behavior, and `manual-deployment/` were not edited. The Stage 0 documentation commit is preserved and pushed; Stage 1 is not committed/pushed.
+- `contracts/precedent_registry.py`, `contracts/precedent_evaluator.py`, all prior tests/fixtures/reports, frontend behavior, and `manual-deployment/` were not edited during Stage 1. Stage 0 and Stage 1 are preserved on `origin/main`; Stage 1 SHA is `c9e2b0ee0fee12f1337630141783f73507a92095`.
 - The existing `artifacts/` directory was present before testing. The first pytest invocation used the runner default and its startup hook cleared that directory. `artifacts/` is ignored by Git and no tracked files are under it. I did not attempt destructive recovery. All later pytest commands explicitly redirected artifacts to the isolated temporary directory.
 - No Docker/Studio service was started; no contract was deployed; no wallet was used and no transaction was sent.
 
