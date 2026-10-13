@@ -1,0 +1,145 @@
+{
+  "registration": {
+    "chain_id": 61127,
+    "court_address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "case_id": "CASE-DEMO",
+    "source_id": "SOURCE-1",
+    "source_version": 1,
+    "source_schema_version": 1,
+    "binding_kind": "CASE",
+    "appeal_id": "",
+    "evidence_id": "EVIDENCE-1",
+    "url_digest": "cfddb9a583d886c7c4db38beac7d287455186799957e91edd1f6cf48af31e9db",
+    "url_host": "fictional.gov.example",
+    "previous_content_digest": "",
+    "proposer": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "registered_at": "2026-10-13T12:00:00Z",
+    "source_commitment": "66b52d5a9e13eb590020fe1460f6d0de614ff3d66f095af51ac6ce1e18e6fab7"
+  },
+  "request": {
+    "request_id": "REQ-1",
+    "case_id": "CASE-DEMO",
+    "source_id": "SOURCE-1",
+    "source_version": 1,
+    "url_digest": "cfddb9a583d886c7c4db38beac7d287455186799957e91edd1f6cf48af31e9db",
+    "source_commitment": "66b52d5a9e13eb590020fe1460f6d0de614ff3d66f095af51ac6ce1e18e6fab7",
+    "attempt": 1,
+    "requester": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "status": "REQUESTED",
+    "requested_at": "2026-10-13T12:01:00Z",
+    "request_commitment": "f97e7d1848973840eb7d08cad7a85e7b4305ec36147cf70b37b4bf55195ec3bd",
+    "expected_commitment": "f97e7d1848973840eb7d08cad7a85e7b4305ec36147cf70b37b4bf55195ec3bd"
+  },
+  "capture": {
+    "case_version": 3,
+    "request_id": "REQ-1",
+    "request_commitment": "f97e7d1848973840eb7d08cad7a85e7b4305ec36147cf70b37b4bf55195ec3bd",
+    "verification_schema_version": 1,
+    "criteria_version": 1,
+    "criteria": "Bounded fictional source capture criteria v1.",
+    "input_commitment": "c8040139db3918a2de554539ae2d01ebcf20ca09df6bcee06afb55838791df95"
+  },
+  "claims": [
+    {
+      "fact_kind": "DATE",
+      "polarity": "SUPPORTS",
+      "finding": "Notice date is 4 March 2026.",
+      "excerpt": "Fictional notice published on 4 March 2026."
+    }
+  ],
+  "excerpt_commitment": "c60368552b2d3401faf24bc7640752884e1f2de13c85f906cd87828d2a84b6e6",
+  "verification": {
+    "verification_id": "VERIFY-1",
+    "chain_id": 61127,
+    "court_address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "case_id": "CASE-DEMO",
+    "case_version": 4,
+    "binding_kind": "CASE",
+    "appeal_id": "",
+    "evidence_id": "EVIDENCE-1",
+    "source_commitment": "66b52d5a9e13eb590020fe1460f6d0de614ff3d66f095af51ac6ce1e18e6fab7",
+    "source_id": "SOURCE-1",
+    "source_version": 1,
+    "request_id": "REQ-1",
+    "verification_schema_version": 1,
+    "retrieval_status": "CAPTURED_SUFFICIENT",
+    "reason_code": "",
+    "provenance": "GENLAYER_WEB_RENDER_EP_ACCEPTED_REQUIRES_FINALITY",
+    "url_digest": "cfddb9a583d886c7c4db38beac7d287455186799957e91edd1f6cf48af31e9db",
+    "input_commitment": "c8040139db3918a2de554539ae2d01ebcf20ca09df6bcee06afb55838791df95",
+    "freshness_status": "OBSERVED_AT_CAPTURE_ONLY",
+    "source_content_digest": "19637adb99dda0291d11e9d451414cfadc61fc647509e09f69eaaa3ab68c79f3",
+    "excerpt_commitment": "c60368552b2d3401faf24bc7640752884e1f2de13c85f906cd87828d2a84b6e6",
+    "source_change": "FIRST_CAPTURE",
+    "previous_content_digest": "",
+    "evidence_sufficient": true,
+    "claims": [
+      {
+        "fact_kind": "DATE",
+        "polarity": "SUPPORTS",
+        "finding": "Notice date is 4 March 2026.",
+        "excerpt": "Fictional notice published on 4 March 2026."
+      }
+    ],
+    "reasoning_summary": "One dated excerpt was captured.",
+    "recorded_at": "2026-10-13T12:02:00Z"
+  },
+  "verification_commitment": "33c89c41279a5ae469d5b8742a292369d654593324b5df1f04982b55a1c590b0",
+  "comparison_input": {
+    "chain_id": 61127,
+    "court_address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "case_id": "CASE-DEMO",
+    "case_version": 4,
+    "comparison_id": "COMPARE-1",
+    "comparison_schema_version": 1,
+    "criteria_version": 1,
+    "criteria": "Compare committed excerpts; do not infer source truth.",
+    "left": {
+      "source_id": "SOURCE-1",
+      "version": 1,
+      "verification_id": "VERIFY-1",
+      "url_digest": "cfddb9a583d886c7c4db38beac7d287455186799957e91edd1f6cf48af31e9db",
+      "content_digest": "19637adb99dda0291d11e9d451414cfadc61fc647509e09f69eaaa3ab68c79f3",
+      "verification_commitment": "33c89c41279a5ae469d5b8742a292369d654593324b5df1f04982b55a1c590b0"
+    },
+    "right": {
+      "source_id": "SOURCE-2",
+      "version": 1,
+      "verification_id": "VERIFY-2",
+      "url_digest": "4aa989152f29a8aadc869704d6a96e09d0de130f6822a040c76be3533059bea4",
+      "content_digest": "1472b684837a6b1428d3acb2666481a5c5e4e4ea4c74a1e3fb091b014727012c",
+      "verification_commitment": "e040a4cce83da6b94810c1f52f316a92036d63a285f02d6f00af3036ef5d992b"
+    },
+    "expected": "4e60cff92cc206451e05e533a25512322deb5bed493a6d8c592869714b820524"
+  },
+  "comparison": {
+    "comparison_id": "COMPARE-1",
+    "case_id": "CASE-DEMO",
+    "chain_id": 61127,
+    "court_address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "case_version": 4,
+    "comparison_schema_version": 1,
+    "input_commitment": "4e60cff92cc206451e05e533a25512322deb5bed493a6d8c592869714b820524",
+    "left_source_id": "SOURCE-1",
+    "left_source_version": 1,
+    "left_verification_id": "VERIFY-1",
+    "left_url_digest": "cfddb9a583d886c7c4db38beac7d287455186799957e91edd1f6cf48af31e9db",
+    "left_verification_commitment": "33c89c41279a5ae469d5b8742a292369d654593324b5df1f04982b55a1c590b0",
+    "left_content_digest": "19637adb99dda0291d11e9d451414cfadc61fc647509e09f69eaaa3ab68c79f3",
+    "right_source_id": "SOURCE-2",
+    "right_source_version": 1,
+    "right_verification_id": "VERIFY-2",
+    "right_url_digest": "4aa989152f29a8aadc869704d6a96e09d0de130f6822a040c76be3533059bea4",
+    "right_verification_commitment": "e040a4cce83da6b94810c1f52f316a92036d63a285f02d6f00af3036ef5d992b",
+    "right_content_digest": "1472b684837a6b1428d3acb2666481a5c5e4e4ea4c74a1e3fb091b014727012c",
+    "relation": "CONFLICTS",
+    "source_conflict": true,
+    "evidence_sufficient": true,
+    "conflict_pairs": [
+      "L1:R1"
+    ],
+    "reasoning_summary": "The dates differ in committed excerpts.",
+    "recorded_at": "2026-10-13T12:03:00Z"
+  },
+  "comparison_commitment": "bd663941516fbffaf137e2e2c658dcfa1904e6cb965003e05c6868765c4b3d7d"
+}

@@ -5,6 +5,8 @@
 **Stage 3B preserved baseline:** `37676fb9ad2cf7fee64dcf02fb8fe59e1a1a8abd` (`HEAD` and local `origin/main` matched at verification)
 **Stage 4 Git state:** local only; not committed or pushed. The pre-existing untracked `manual-deployment/` directory was left untouched and unstaged.
 
+> **Preservation addendum (2026-10-13):** Stage 4 was subsequently preserved in commit `e18cd99af1aab8ccef2b2380967c57ff3e57c275` and pushed normally to `origin/main`; local `HEAD` and the observed remote tracking branch matched that SHA before Stage 5 began. The original report below records Stage 4's status at completion. Stage 5 changes are a new, uncommitted working-tree diff. `manual-deployment/` remains untracked and untouched.
+
 ## Result
 
 Stage 4 implements a bounded CaseCourt appeal lifecycle, AI-assisted appellate ruling, custom Equivalence Principle field checks, deterministic ruling enforcement, case-local appeal freeze, two-level limit and application-level bilateral closure. Newly opened case snapshots use schema v2. A newly deployed CaseCourt source is required; an already deployed immutable Stage 3B contract does not gain these methods from this repository edit. It is **locally tested only**. No Studio/GenLayer node was started, no wallet signature or transaction was created, and no deployment occurred.

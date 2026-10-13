@@ -97,7 +97,7 @@ The user's new instruction reports that their ordinary PowerShell previously ret
 | Custom Equivalence Principle | **Locally tested (mocked)** | Existing custom decision-field comparison under `run_nondet_unsafe`; no live disagreement/acceptance proof. [Official EP reference](https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle). |
 | Transaction timestamp | **Locally tested / documentation-confirmed** | CaseCourt Direct Mode only; [current transaction-context docs](https://docs.genlayer.com/developers/intelligent-contracts/features/transaction-context) describe pinned transaction time, not block metadata. |
 | Receipt/finality | **Blocked for project runtime** | [Current finality docs](https://docs.genlayer.com/understand-genlayer-protocol/core-concepts/optimistic-democracy/finality) distinguish Accepted from Finalized; no actual project receipt checked. |
-| Web Render | **Not started / blocked** | [Current Web Access docs](https://docs.genlayer.com/developers/intelligent-contracts/features/web-access) show `gl.nondet.web.render(url, mode='html'|'screenshot')`; safety controls/runtime availability not verified. |
+| Web Render | **Implemented / locally tested with mocks; live blocked** | [Current Web Access docs](https://docs.genlayer.com/developers/intelligent-contracts/features/web-access) plus [FetchWebContent example](https://docs.genlayer.com/developers/intelligent-contracts/examples/fetch-web-content) show `gl.nondet.web.render(url, mode='html'|'text')`; Stage 5 capture remains hard-gated. No actual stable runner call, redirect/private-IP control, response pre-cap or fee/runtime proof. |
 | Deployment and fees | **Blocked** | Current [fee](https://docs.genlayer.com/developers/decentralized-applications/fees-and-transaction-kit) and [deployment](https://docs.genlayer.com/developers/intelligent-contracts/deploying) docs describe profiling/estimation and v2 workflows. Stable fee API compatibility with pinned GenLayerJS 1.1.8 remains unresolved. |
 | Studio browser deployment | **Documentation-confirmed / not started** | [Studio deploy docs](https://docs.genlayer.com/developers/intelligent-contracts/tools/genlayer-studio/deploying-contract) describe constructor detection and deploy UI; no UI interaction/deployment was performed. |
 
@@ -131,3 +131,17 @@ Current official [LLM](https://docs.genlayer.com/developers/intelligent-contract
 | Studionet deployment or appeal transaction | None performed. | **NOT STARTED** |
 
 The verified documentation API pattern is not proof that this specific CaseCourt source passes the current stable runner or its resource limits. See `V2_STAGE_4_REPORT.md` and `V2_APPELLATE_EQUIVALENCE.md`.
+
+## Stage 5 Web Evidence runtime status (2026-10-13)
+
+| Capability | Status | Evidence boundary |
+|---|---|---|
+| `gl.nondet.web.render(url, mode="text")` signature | **DOCUMENTATION-CONFIRMED** | Official FetchWebContent example and Web Access page; this confirms API documentation only. |
+| Production CaseCourt capture call | **IMPLEMENTED / BLOCKED** | `WEB_RENDER_RUNTIME_ENABLED = False` fails closed before renderer invocation. |
+| Output/claim and custom EP logic | **LOCALLY TESTED** | Direct Mode replaces renderer and model with fixtures; not runtime or consensus proof. |
+| Source identity, content/excerpt and verification commitments | **IMPLEMENTED / LOCALLY TESTED** | Shared Python/TS vectors; hashes establish byte binding only, not source truth. |
+| Redirects, DNS rebinding/private-network egress, renderer pre-read bounds/cost | **BLOCKED** | Not established by the inspected docs or available runtime. A post-render contract length check cannot cap renderer work before return. |
+| Actual validator agreement/disagreement, transaction rollback, receipt/finality | **BLOCKED** | No node or network execution. |
+| Frontend live write controls | **NOT STARTED / DISABLED** | Web Evidence page is informational; no capture or comparison write adapter is enabled. |
+
+Stage 5 code and limits are described in `V2_WEB_RENDER_IMPLEMENTATION.md`; source hashes and bindings are in `V2_EVIDENCE_PROVENANCE.md`; custom equivalence is in `V2_SOURCE_EQUIVALENCE.md`; freeze recovery is in `V2_FREEZE_RECOVERY.md`.

@@ -68,6 +68,16 @@ Do not implement dependent features around an unverified call path. Existing Reg
 
 **BLOCKED:** stable runner mapping, real validator acceptance/disagreement, failure rollback, fee profiling, real receipt/finality, independent legal-policy/security review. Do not label a judgment FINALIZED until the actual successful finalized receipt is verified. The frontend remains write-disabled.
 
+### Stage 5 — Web Evidence provenance, source comparison, and appeal recovery (implemented locally; runtime gated)
+
+**Implemented:** versioned candidate URLs; counterparty approval; bounded retrieval requests; case/appeal binding; source, request, capture, excerpt and comparison commitments; exact evidence excerpt binding; content drift classification; custom EP checks for capture and comparison fields; explicit participant-reported unavailability; mutual appeal withdrawal before adjudication begins.
+
+**Locally tested:** fictional Direct Mode fixtures; monkeypatched Web Render and LLM; state preservation in the harness; source/request tamper rejection; cross-case and appeal bindings; conflicting-source fields; Python/TypeScript commitment vectors; bilateral freeze recovery and rejection after an appellate ruling. Frontend stays read-only and describes statuses without fabricating evidence.
+
+**BLOCKED:** production Web Render remains `WEB_RENDER_RUNTIME_ENABLED = False`. Need exact stable runner identity, renderer redirect and destination IP protections, pre-read response bounds, resource/fee budget, real validator behavior and transaction rollback/finality evidence. A public DNS syntax check and party approval are not SSRF protection.
+
+**Exit criteria:** only enable capture after the above capabilities are tested on the intended runner and a controlled local runtime; verify a successful finalized record and a disagreement/failure path with actual receipts; audit costs and state rollback; complete independent security and due-process review. Do not use mocked render results as a substitute.
+
 ### Stage 3 — CaseCourt deterministic lifecycle core
 
 **Scope:** implement case opening, parties, evidence commitments/versioning/locking, immutable action journal, expected version checks, deadline-safe state, challenges, bounded freeze and its expiry, appeal eligibility/counters, closure and relation recording. AI/Web Render methods remain gated until their stages pass.

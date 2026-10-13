@@ -42,6 +42,9 @@ export interface CaseCourtSnapshot {
   active_appeal_id: string;
   last_resolved_appeal_id: string;
   appeal_count: string;
+  appeal_ids: string;
+  web_source_count: string;
+  web_comparison_count: string;
   appeal_freeze: 'true' | 'false';
   appeal_freeze_reason: string;
   appeal_freeze_digest: string;
@@ -80,7 +83,122 @@ export type CaseCourtAppealStatus =
   | 'PENDING_ADJUDICATION'
   | 'REVIEW_READY'
   | 'PENDING_RESOLUTION'
-  | 'RESOLVED';
+  | 'RESOLVED'
+  | 'WITHDRAWAL_REQUESTED'
+  | 'WITHDRAWN';
+
+export type CaseCourtWebBindingKind = 'CASE' | 'APPEAL';
+export type CaseCourtWebSourceStatus =
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'REQUESTED'
+  | 'CAPTURED_SUFFICIENT'
+  | 'CAPTURED_INSUFFICIENT'
+  | 'CALLER_REPORTED_UNAVAILABLE';
+export type CaseCourtWebRetrievalStatus = CaseCourtWebSourceStatus | 'NOT_FOUND';
+export type CaseCourtWebFreshness = 'OBSERVED_AT_CAPTURE_ONLY' | 'NOT_ESTABLISHED';
+export type CaseCourtWebSourceChange = 'FIRST_CAPTURE' | 'UNCHANGED' | 'CHANGED' | 'UNKNOWN';
+export type CaseCourtWebComparisonRelation = 'SUPPORTS' | 'CONFLICTS' | 'NOT_COMPARABLE' | 'INSUFFICIENT_EVIDENCE';
+
+/** A registered URL candidate; approval is not proof of its contents or authority. */
+export interface CaseCourtWebSource {
+  case_id: string;
+  source_id: string;
+  source_version: string;
+  source_schema_version: string;
+  binding_kind: CaseCourtWebBindingKind;
+  appeal_id: string;
+  evidence_id: string;
+  url: string;
+  url_host: string;
+  url_digest: string;
+  previous_content_digest: string;
+  chain_id: string;
+  court_address: `0x${string}`;
+  proposer: `0x${string}`;
+  registered_at: string;
+  source_commitment: string;
+  status: CaseCourtWebSourceStatus;
+  attempt_count: string;
+  request_id: string;
+  latest_verification_id: string;
+  latest_content_digest: string;
+}
+
+/** Observation provenance is distinct from finality, source truth, and freshness guarantees. */
+export interface CaseCourtWebVerification {
+  verification_id: string;
+  case_id: string;
+  source_id: string;
+  source_version: string;
+  request_id: string;
+  chain_id: string;
+  court_address: `0x${string}`;
+  case_version: string;
+  binding_kind: CaseCourtWebBindingKind;
+  appeal_id: string;
+  evidence_id: string;
+  source_commitment: string;
+  verification_schema_version: string;
+  retrieval_status: 'CAPTURED_SUFFICIENT' | 'CAPTURED_INSUFFICIENT' | 'CALLER_REPORTED_UNAVAILABLE';
+  reason_code: string;
+  provenance: 'GENLAYER_WEB_RENDER_EP_ACCEPTED_REQUIRES_FINALITY' | 'PARTICIPANT_REPORT_NOT_WEB_RENDER_PROOF';
+  url_digest: string;
+  source_content_digest: string;
+  freshness_status: CaseCourtWebFreshness;
+  input_commitment: string;
+  excerpt_commitment: string;
+  source_change: CaseCourtWebSourceChange;
+  previous_content_digest: string;
+  evidence_sufficient: 'true' | 'false';
+  claims: string;
+  reasoning_summary: string;
+  recorded_at: string;
+  verification_commitment: string;
+}
+
+export interface CaseCourtWebRetrievalRequest {
+  request_id: string;
+  case_id: string;
+  source_id: string;
+  source_version: string;
+  url_digest: string;
+  source_commitment: string;
+  request_commitment: string;
+  attempt: string;
+  requester: `0x${string}`;
+  status: string;
+  requested_at: string;
+}
+
+export interface CaseCourtWebSourceComparison {
+  comparison_id: string;
+  case_id: string;
+  comparison_schema_version: string;
+  chain_id: string;
+  court_address: `0x${string}`;
+  case_version: string;
+  input_commitment: string;
+  left_source_id: string;
+  left_source_version: string;
+  left_verification_id: string;
+  left_url_digest: string;
+  left_verification_commitment: string;
+  left_content_digest: string;
+  right_source_id: string;
+  right_source_version: string;
+  right_verification_id: string;
+  right_url_digest: string;
+  right_verification_commitment: string;
+  right_content_digest: string;
+  relation: CaseCourtWebComparisonRelation;
+  source_conflict: 'true' | 'false';
+  evidence_sufficient: 'true' | 'false';
+  conflict_pairs: string;
+  reasoning_summary: string;
+  recorded_at: string;
+  comparison_commitment: string;
+}
 
 export type CaseCourtAppealOutcome =
   | 'UPHELD'

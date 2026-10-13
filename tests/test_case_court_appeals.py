@@ -102,7 +102,7 @@ def test_appeal_upheld_end_to_end_freeze_immutable_ruling_and_bilateral_closure(
     contract = _deploy(direct_deploy)
     case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
     original = contract.get_judgment("AP-JUDGMENT-1")
-    assert contract.get_case(case_id)["schema_version"] == "2"
+    assert contract.get_case(case_id)["schema_version"] == "3"
     _reach_pending_ruling(contract, direct_vm, direct_alice, direct_bob, case_id)
     assert direct_vm.run_validator() is True
     frozen = contract.get_case(case_id)
