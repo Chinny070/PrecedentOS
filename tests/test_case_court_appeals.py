@@ -104,6 +104,15 @@ def test_appeal_upheld_end_to_end_freeze_immutable_ruling_and_bilateral_closure(
     original = contract.get_judgment("AP-JUDGMENT-1")
     assert contract.get_case(case_id)["schema_version"] == "3"
     _reach_pending_ruling(contract, direct_vm, direct_alice, direct_bob, case_id)
+    recovery = contract.get_appeal_recovery_status(case_id, "AP-LEVEL1")
+    assert recovery["application_appeal_status"] == "PENDING_RESOLUTION"
+    assert recovery["appeal_is_active"] == "true"
+    assert recovery["case_is_frozen"] == "true"
+    assert recovery["native_transaction_status"] == "NOT_AVAILABLE_FROM_CASECOURT"
+    assert recovery["finalized_successful_execution"] == "NOT_VERIFIED"
+    assert recovery["recovery_authority"] == "NO_UNILATERAL_RECOVERY_TRANSITION"
+    with direct_vm.expect_revert("case not found"):
+        contract.get_appeal_recovery_status("FICT-OTHER-CASE", "AP-LEVEL1")
     assert direct_vm.run_validator() is True
     frozen = contract.get_case(case_id)
     assert frozen["frozen"] == "true"

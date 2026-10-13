@@ -1,8 +1,12 @@
 # PrecedentOS 2.0 Implementation Masterplan
 
-**Current stage:** Stage 6 contradiction/authority overlays and browser disclosure workflow are implemented and locally tested; Stage 7 security review is next. Stable runtime, live validator consensus, finality, cost and legal-policy gates remain open.
+**Current stage:** Stage 7B security hardening and local regression work is in progress in the working tree. Stable runtime, live validator consensus, finality, cost and legal-policy gates remain open.
 **Target:** stable GenLayer Studionet, expected chain ID `61999`.
-**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 6 commit/push.
+**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, commit, or push.
+
+### Stage 7B execution note (2026-10-13)
+
+Verified local HEAD is `05fa708afa3d42ea17ba0408a107549963f6dc91`, which preserves Stage 6 and Stage 7A together. This additive note does not erase the accurate Stage 7A account that earlier Codex staging was blocked and an escalation rejected. Stage 7B adds both-case participant authorization for contradiction challenges, Gregorian Registry date checks, a read-only appeal recovery diagnostic, and truthful UI status for read-only evaluation records. No commit/push or runtime transaction is part of this stage. See `V2_STAGE_7B_REPORT.md` and the appeal, authorization, adversarial, and cost gate reports.
 
 ### Stage 2 execution note (2026-10-13)
 

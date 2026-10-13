@@ -135,6 +135,18 @@ class PrecedentRegistry(gl.Contract):
         for index, character in enumerate(decision_date):
             if index not in (4, 7) and character not in "0123456789":
                 return False
+        year = int(decision_date[0:4])
+        month = int(decision_date[5:7])
+        day = int(decision_date[8:10])
+        if year < 1:
+            return False
+        if month < 1 or month > 12:
+            return False
+        days_per_month = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+        leap_year = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+        maximum_day = 29 if month == 2 and leap_year else days_per_month[month - 1]
+        if day < 1 or day > maximum_day:
+            return False
         return (
             self._safe_public_label(jurisdiction)
             and self._safe_public_label(category)

@@ -179,3 +179,8 @@ Security detail is in `V2_SECURITY_AUDIT.md`; state guarantees and gaps are in `
 | Frontend live write controls | **NOT STARTED / DISABLED** | Web Evidence page is informational; no capture or comparison write adapter is enabled. |
 
 Stage 5 code and limits are described in `V2_WEB_RENDER_IMPLEMENTATION.md`; source hashes and bindings are in `V2_EVIDENCE_PROVENANCE.md`; custom equivalence is in `V2_SOURCE_EQUIVALENCE.md`; freeze recovery is in `V2_FREEZE_RECOVERY.md`.
+# Stage 7B runtime status addendum (2026-10-13)
+
+Baseline commit `05fa708afa3d42ea17ba0408a107549963f6dc91` was verified locally. Protected Python baseline before Stage 7B was 220 passed / 2 skipped. New local code has not been run on a compatible live runner. The Stage 7B acceptance runs are recorded in `V2_STAGE_7B_REPORT.md`.
+
+No deployment, RPC request, write transaction, wallet signature, or Web Render execution was performed. The four Stage 7B GenVM lint/validation commands passed against cached tooling; upstream runner resolution was blocked by `WinError 10013`, so cached success is not stable runner verification. Native transaction status/finality, validator disagreement/rollback, fee profile, redirect/DNS/private-destination handling, and runner compatibility remain **BLOCKED ON RUNTIME**. The manual Studio procedure remains a separately user-operated diagnostic; read-only review, deployment, write transaction, and fee decisions are distinct gates.

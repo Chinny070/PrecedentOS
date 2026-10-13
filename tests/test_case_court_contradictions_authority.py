@@ -237,6 +237,55 @@ def test_nonparty_active_appeal_duplicate_and_replay_are_rejected(direct_vm, dir
         _file_challenge(contract, direct_vm, direct_bob, ja, jb, challenge_id="TRIBUNAL-CHALLENGE-2")
 
 
+def test_cross_case_challenge_requires_caller_to_belong_to_both_cases(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
+    contract = direct_deploy(str(CONTRACT))
+    _, ja, _, jb = _setup_pair(contract, direct_vm, direct_alice, direct_bob)
+    before_challenges = contract.contradiction_challenge_count
+    before_actions = contract.action_count
+
+    # Bob participates in the challenged case but not the conflicting case.
+    # The second-case authorization guard must reject before any append/counter update.
+    vm_module = __import__(contract.__class__.__module__, fromlist=["Address"])
+    direct_vm.sender = direct_alice
+    contract.open_case("FICT-TRIBUNAL-C", "TRIB-C-OPEN", vm_module.Address(direct_charlie),
+                       FIXTURE["case_type"], 1, _digest("TRIB-C opening"))
+    for index, evidence in enumerate(FIXTURE["evidence"], 1):
+        direct_vm.sender = direct_alice if index == 1 else direct_charlie
+        contract.append_evidence("FICT-TRIBUNAL-C", index, f"TRIB-C-EVID-{index}", evidence["evidence_id"],
+                                 _digest(evidence["text"]), 1, _digest("TRIB-C source " + str(index)))
+    direct_vm.sender = direct_charlie
+    case_c = contract.get_case("FICT-TRIBUNAL-C")
+    contract.lock_evidence("FICT-TRIBUNAL-C", int(case_c["version"]), "TRIB-C-LOCK")
+    case_c = contract.get_case("FICT-TRIBUNAL-C")
+    direct_vm.clear_mocks()
+    direct_vm.mock_llm("bounded fictional case assessment", json.dumps(_judgment_answer("DENY"), separators=(",", ":")))
+    contract.adjudicate_case("FICT-TRIBUNAL-C", int(case_c["version"]), "TRIB-C-DECIDE", "TRIBUNAL-J-C",
+                             json.dumps({"evidence": FIXTURE["evidence"]}, separators=(",", ":")))
+    assert direct_vm.run_validator() is True
+    jc = contract.get_judgment("TRIBUNAL-J-C")
+
+    before = (contract.contradiction_challenge_count, contract.action_count,
+              contract.get_contradiction_challenge("TRIBUNAL-CROSS-CASE-1"))
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("caller is not a participant in both cases"):
+        _file_challenge(contract, direct_vm, direct_bob, ja, jc, challenge_id="TRIBUNAL-CROSS-CASE-1")
+    assert (contract.contradiction_challenge_count, contract.action_count,
+            contract.get_contradiction_challenge("TRIBUNAL-CROSS-CASE-1")) == before
+    assert contract.contradiction_challenge_count == before_challenges
+    assert contract.action_count == before_actions + contract.get_case_action_count("FICT-TRIBUNAL-C")
+
+    # Alice participates in both cases and can file a challenge; Charlie is
+    # only in case C and cannot challenge records in A on C's behalf.
+    filed = _file_challenge(contract, direct_vm, direct_alice, jc, ja,
+                            challenge_id="TRIBUNAL-CROSS-CASE-2")
+    assert filed["challenged_case_id"] == "FICT-TRIBUNAL-C"
+    assert filed["conflicting_case_id"] == "FICT-TRIBUNAL-A"
+    direct_vm.sender = direct_charlie
+    with direct_vm.expect_revert("caller is not a participant in both cases"):
+        _file_challenge(contract, direct_vm, direct_charlie, jc, ja,
+                        challenge_id="TRIBUNAL-CROSS-CASE-3")
+
+
 def test_frozen_case_blocks_pending_contradiction_assessment_and_authority_edges(
     direct_vm, direct_deploy, direct_alice, direct_bob
 ):

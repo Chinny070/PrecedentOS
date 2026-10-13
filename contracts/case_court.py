@@ -1113,6 +1113,12 @@ class CaseCourt(gl.Contract):
         if challenged_case.get("active_appeal_id") or conflicting_case.get("active_appeal_id"):
             raise gl.vm.UserError("cannot challenge a decision while either case has an active appeal")
         self._require_party(challenged_case)
+        sender_hex = gl.message.sender_address.as_hex
+        if not (
+            self._same_address(sender_hex, str(conflicting_case["petitioner"]))
+            or self._same_address(sender_hex, str(conflicting_case["respondent"]))
+        ):
+            raise gl.vm.UserError("caller is not a participant in both cases")
         if self._same_address(gl.message.sender_address.as_hex, str(challenged["submitter"])):
             raise gl.vm.UserError("decision submitter cannot challenge its own decision")
         if (challenged_case.get("operative_decision_id") != challenged_id
@@ -2171,6 +2177,39 @@ class CaseCourt(gl.Contract):
         return {
             name: ("true" if value else "false") if isinstance(value, bool) else str(value)
             for name, value in ruling.items()
+        }
+
+    @gl.public.view
+    def get_appeal_recovery_status(self, case_id: str, appeal_id: str) -> dict[str, str]:
+        """Expose CaseCourt state without inferring native transaction lifecycle or finality."""
+        self._validate_case_id(case_id)
+        self._validate_id(appeal_id, MAX_ACTION_ID_LENGTH, "invalid appeal identifier")
+        snapshot = self._get_case_or_revert(case_id)
+        appeal_key = self._appeal_key(appeal_id)
+        if appeal_key not in self.records:
+            raise gl.vm.UserError("appeal not found")
+        appeal = self._decode(self.records[appeal_key])
+        if appeal["case_id"] != case_id:
+            raise gl.vm.UserError("appeal belongs to another case")
+        ruling_key = self._appellate_ruling_key(appeal_id)
+        ruling_recorded = ruling_key in self.records
+        ruling_commitment = ""
+        if ruling_recorded:
+            ruling_commitment = str(self._decode(self.records[ruling_key]).get("ruling_commitment", ""))
+        return {
+            "case_id": case_id,
+            "appeal_id": appeal_id,
+            "application_appeal_status": str(appeal["status"]),
+            "case_phase": str(snapshot["phase"]),
+            "case_version": str(snapshot["version"]),
+            "appeal_is_active": str(snapshot["active_appeal_id"] == appeal_id).lower(),
+            "case_is_frozen": str(bool(snapshot["frozen"])).lower(),
+            "appeal_freeze": str(bool(snapshot["appeal_freeze"])).lower(),
+            "ruling_recorded_in_casecourt": str(ruling_recorded).lower(),
+            "ruling_commitment": ruling_commitment,
+            "native_transaction_status": "NOT_AVAILABLE_FROM_CASECOURT",
+            "finalized_successful_execution": "NOT_VERIFIED",
+            "recovery_authority": "NO_UNILATERAL_RECOVERY_TRANSITION",
         }
 
     @gl.public.view

@@ -115,6 +115,35 @@ See `V2_STAGE_5_REPORT.md`, `V2_WEB_RENDER_IMPLEMENTATION.md`, `V2_EVIDENCE_PROV
 
 See `V2_SECURITY_AUDIT.md`, `V2_PROTOCOL_INVARIANTS.md`, `V2_STUDIO_MANUAL_TEST_PLAN.md`, and `V2_STAGE_7A_REPORT.md`.
 
+## Stage 7B acceptance state addendum (2026-10-13)
+
+Local baseline HEAD was verified as `05fa708afa3d42ea17ba0408a107549963f6dc91`, preserving Stage 6 and 7A together. The earlier Stage 7A record that Codex staging was blocked and an escalation rejected remains historically accurate. No commit/push/deploy/transaction occurred in Stage 7B.
+
+| # | Requirement | Stage 7B state | Evidence boundary |
+|---:|---|---|---|
+| 1 | Precedent registration and evidence commitments | **IMPLEMENTED; LOCALLY TESTED** | Gregorian date check added; digest still does not prove source authenticity. No live registration. |
+| 2 | AI precedent evaluation | **IMPLEMENTED; LOCALLY TESTED** | Existing Direct Mode mocks; runtime/consensus blocked. |
+| 3 | Case lifecycle and decision states | **IMPLEMENTED; LOCALLY TESTED** | Existing contract tests; finality anchoring blocked. |
+| 4 | Appeals and appeal eligibility | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Read-only recovery diagnostic; policy and runtime liveness unresolved. |
+| 5 | Enforceable decision freezes | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Appeal freeze intentionally has no unilateral recovery path. |
+| 6 | AI-assisted appeal judgments | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Mocked model/validator; live result and rollback unverified. |
+| 7 | Genuine GenLayer Web Render evidence retrieval | **IMPLEMENTED; BLOCKED** | Method remains disabled; runtime URL/egress/cost controls unverified. |
+| 8 | Evidence locking, versioning, provenance | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Commitments tested; source authenticity/finality/runtime remain blocked. |
+| 9 | Contradiction challenges | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Both-case authorization fixed/tested; evidence excerpts remain assertions; no live writes. |
+| 10 | Precedent reversal and supersession | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Local graph test only; current authority/finality claims remain gated. |
+| 11 | Precedent authority and decision lineage | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Bounded append-only graph; historical edge semantics and cost are not legal proof. |
+| 12 | Multi-level appeals | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Two levels locally tested; independent review and native finality unresolved. |
+| 13 | Deadlines and protocol case finality | **BLOCKED** | No appeal deadline or native finality anchor; app closure is not native finality. |
+| 14 | Equivalence Principle and consensus-aware validation | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | Direct Mode mocks; no live validator consensus evidence. |
+| 15 | Counterfactual analysis | **IMPLEMENTED; LOCALLY TESTED** | Fictional client-side hypothetical only; no contract authority. |
+| 16 | DAO and AI-agent integration | **NOT STARTED** | No authorization/governance adapter or role registry. |
+| 17 | Security and abuse protections | **IMPLEMENTED; LOCALLY TESTED; BLOCKED** | New fixes and tests; runtime, policy, independent review gates remain. |
+| 18 | Complete frontend workflows | **PARTIAL; LOCALLY TESTED; NOT STARTED** | Read status made more honest; production case/governance UI remains disabled. |
+| 19 | Real Studionet deployment verification | **BLOCKED** | No live RPC/deployment/runtime verification in Stage 7B. |
+| 20 | Submission-ready documentation and demonstration | **PARTIAL; LOCALLY TESTED; BLOCKED** | Stage 7B reports added; live demonstration and finality evidence absent. |
+
+No requirement is **LIVE VERIFIED** by Stage 7B. `V2_STAGE_7B_REPORT.md` gives the precise Python/frontend/GenVM check results and skipped/blocked distinction.
+
 ## Matrix closure rules
 
 1. Replace `Proposed` with `Implemented` only when code exists and method/schema links are recorded.

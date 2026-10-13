@@ -1,5 +1,14 @@
 # PrecedentOS 2.0 — GenLayer Studio Manual Diagnostic Test Plan
 
+## Stage 7B approval separation
+
+- **READ-ONLY CHECKS:** inspect the diagnostic source, verify Studio network label and chain ID, inspect constructor/method recognition, and review the current displayed status/fee information. A view/read has no write approval implication.
+- **DEPLOYMENT REQUIRES APPROVAL:** deployment creates a contract and may incur a fee. The user must independently review the exact source, network, and displayed cost before confirming.
+- **WRITE TRANSACTION REQUIRES APPROVAL:** each optional method call is a separate transaction decision. Do not treat a prior deployment decision as approval for writes.
+- **FEE REQUIRES REVIEW:** review each currently displayed deployment/write fee and acceptable amount. This repository does not estimate GEN or network costs.
+
+Do not send a transaction, sign a wallet message, deploy, or share keys as part of reading this procedure. The rest of this document remains the manual workflow; no Studio operation has been performed by Stage 7B.
+
 **Purpose:** a user-operated, isolated diagnostic of browser deployment and runtime behavior. This is not a production deployment guide and does not authorize Codex to deploy or send transactions. The probe has not been deployed. Stable runner compatibility and current fees remain unresolved.
 
 ## Artifact and preflight

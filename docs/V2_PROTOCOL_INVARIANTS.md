@@ -34,3 +34,11 @@
 4. **Participant assertions:** scope, excerpts, and some source claims are user supplied. Matching commitments establish who supplied bytes and whether bytes later match; they do not establish source provenance or jurisdiction.
 5. **CaseCourt-only freeze:** the freeze does not constrain Registry, Evaluator, or unrelated contracts. Do not present it as a network-wide or system-wide freeze.
 
+# Stage 7B additive invariants (2026-10-13)
+
+- A contradiction challenge spans two distinct cases; the caller must be a named participant in both and must not be the challenged decision submitter. A failed deterministic authorization check appends no challenge/action and changes no counter.
+- Registry decision dates must be valid Gregorian dates, including leap-year rules; date metadata remains caller-supplied and is not an authenticity claim.
+- Appeal application status, native transaction status, and verified successful finalized execution are separate. The CaseCourt recovery view exposes only application state and labels native lifecycle unavailable/finality unverified.
+- A contract record read or a localStorage transaction note cannot establish finality. Frontend finality labels require an observed finalized lifecycle signal; even this is transaction observation, not legal correctness.
+- Authority graph edges are append-only historical records. Their presence alone does not prove current operative authority, authenticity, legal correctness, or transaction finality.
+

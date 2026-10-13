@@ -1,4 +1,4 @@
-# PrecedentOS 2.0 — Stage 7A Security Audit
+# PrecedentOS 2.0 — Security Audit (Stage 7A history + Stage 7B re-evaluation)
 
 **Date:** 2026-10-13  
 **Scope:** `PrecedentRegistry`, `PrecedentEvaluator`, and `CaseCourt`, including Stage 6 contradiction/authority additions and Web Evidence paths.  
@@ -61,4 +61,12 @@ The highest remaining release blockers are native transaction finality anchoring
 - Focused security tests: `python scripts/run_tests_safe.py tests/test_case_court_appeals.py tests/test_case_court_contradictions_authority.py` — **32 passed**.
 - GenVM lint: Registry, Evaluator, CaseCourt, and Studio probe each passed cached lint/validation. Upstream runner lookup failed with `WinError 10013`; not stable runner proof.
 - Frontend: `npm run lint`, `npm run typecheck`, `npm run test` (**56 passed**), and `npm run build` passed. These checks do not verify live chain claims.
+
+## Stage 7B re-evaluation (additive, 2026-10-13)
+
+The working baseline is commit `05fa708afa3d42ea17ba0408a107549963f6dc91`; this confirms that Stage 6 and Stage 7A are preserved together. It does not change the historical fact that earlier Codex staging was blocked and an escalation was rejected. The detailed S7-01–S7-13 status register is now in `V2_ADVERSARIAL_TEST_EVIDENCE.md`.
+
+Two additional locally fixable defects were confirmed and fixed: Registry accepted impossible calendar dates despite strict date shape; and `file_contradiction_challenge` authorized a participant from the challenged case without requiring participation in the conflicting case. Regression coverage now rejects invalid dates and cross-case callers without state mutation. The read-only appeal diagnostic reports app status separately from native transaction/finality, and the frontend evaluation panel no longer equates a read with finality. Focused contradiction and Registry suites passed **50 tests**.
+
+Current S7 dispositions: S7-01/02/03/09/11/12 **BLOCKED ON RUNTIME**; S7-04/05/06/10/13 **FIXED AND LOCALLY TESTED**; S7-07 **BLOCKED ON POLICY**; S7-08 **OPEN**. Local tests remain mocked Direct Mode and do not establish live consensus, rollback, fees, native finality, or Web Render protections. Reviewer selection/recovery policy remains disabled pending governance approval.
 

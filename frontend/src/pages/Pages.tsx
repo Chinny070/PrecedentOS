@@ -16,6 +16,7 @@ import {
 } from '../lib/genlayer/client';
 import type { Precedent, TransactionTrace } from '../types/domain';
 import { authorityDisclosure } from '../lib/authorityStatus';
+import { evaluationRecordStatus } from '../lib/recordStatus';
 
 function Heading({ eyebrow, title, intro, side }: { eyebrow: string; title: ReactNode; intro?: string; side?: ReactNode }) {
   return <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>{eyebrow}</div><h1>{title}</h1>{intro && <p>{intro}</p>}</div>{side && <div className="page-heading-side">{side}</div>}</div>;
@@ -200,7 +201,7 @@ export function ComparePage() {
       <div className="submit-strip"><div><b>NO PRIVATE DATA</b><span>Do not submit personal, confidential, or non-public passages.</span></div><button className="button button--dark" disabled={!canSubmit}>{busy ? 'Awaiting wallet…' : 'Submit to PrecedentEvaluator'} <Icon name="arrow" size={16}/></button></div>
       {!isAddress(addresses.evaluator) && <div className="form-blocker">The Evaluator address is not configured. Demo navigation stays available; no fallback or mock write will occur.</div>}
     </form>
-    {result && <ResultPanel result={result} id={evaluationId} />}
+    {result && <ResultPanel result={result} id={evaluationId} statusLabel="FINALIZED TRANSACTION · RECORD READ BACK" finalized />}
   </div>;
 }
 
@@ -209,11 +210,11 @@ function parseJsonField(value: unknown): unknown {
   try { return JSON.parse(value); } catch { return value; }
 }
 
-function ResultPanel({ result, id }: { result: Record<string, string>; id: string }) {
+function ResultPanel({ result, id, statusLabel, finalized = false }: { result: Record<string, string>; id: string; statusLabel: string; finalized?: boolean }) {
   const decision = parseJsonField(result.decision_fields_json) as Record<string, unknown> | string;
   const fields = typeof decision === 'object' && decision ? decision : {};
   const className = result.classification || String(fields.classification ?? 'unknown');
-  return <section className={`result-panel result-panel--${className}`}><div className="result-panel-head"><StatusTag tone="good">FINALIZED · READ BACK</StatusTag><Mono>{id}</Mono></div><h2>{className.replaceAll('_', ' ')}</h2><p>{result.reasoning || 'No rationale was returned.'}</p><div className="decision-grid">{['same_material_issue','evidence_sufficient','outcomes_differ','material_similarity','potential_contradiction'].map((key) => <div key={key}><span>{key.replaceAll('_',' ')}</span><b>{String(fields[key] ?? 'unavailable')}</b></div>)}</div><DigestLine label="INPUT COMMITMENT" digest={result.input_commitment || 'Unavailable in returned schema'}/><p className="result-caveat">Consensus outcome is a research signal under the contract's rule, not a guarantee of legal correctness.</p></section>;
+  return <section className={`result-panel result-panel--${className}`}><div className="result-panel-head"><StatusTag tone={finalized ? 'good' : 'warn'}>{statusLabel}</StatusTag><Mono>{id}</Mono></div><h2>{className.replaceAll('_', ' ')}</h2><p>{result.reasoning || 'No rationale was returned.'}</p><div className="decision-grid">{['same_material_issue','evidence_sufficient','outcomes_differ','material_similarity','potential_contradiction'].map((key) => <div key={key}><span>{key.replaceAll('_',' ')}</span><b>{String(fields[key] ?? 'unavailable')}</b></div>)}</div><DigestLine label="INPUT COMMITMENT" digest={result.input_commitment || 'Unavailable in returned schema'}/><p className="result-caveat">Consensus outcome is a research signal under the contract's rule, not a guarantee of legal correctness.</p></section>;
 }
 
 export function PrecedentDetailPage() {
@@ -247,7 +248,8 @@ export function EvaluationDetailPage() {
       <DataNote>This sample teaches result structure. It is not an Intelligent Contract execution or consensus result.</DataNote><section className="result-panel result-panel--demo"><div className="result-panel-head"><StatusTag tone="demo">DEMO CLASSIFICATION</StatusTag><Mono>{demo.id}</Mono></div><h2>{demo.classification.replaceAll('_',' ')}</h2><p>{demo.reasoning}</p><div className="decision-grid">{(['same_material_issue','evidence_sufficient','outcomes_differ','material_similarity','potential_contradiction'] as const).map((key) => <div key={key}><span>{key.replaceAll('_',' ')}</span><b>{demo[key] ? 'YES' : 'NO'}</b></div>)}</div><DigestLine label="INPUT COMMITMENT" digest="Not a chain commitment · demo record"/><div className="result-findings"><div><h3>SIMILARITIES</h3>{demo.similarities.map((item) => <p key={item}>+ {item}</p>)}</div><div><h3>DIFFERENCES</h3>{demo.differences.map((item) => <p key={item}>↗ {item}</p>)}</div></div></section><div className="pair-result-links"><Link to={`/precedents/${a.id}`} className="related-link">A · {a.id} — {a.title}</Link><Link to={`/precedents/${b.id}`} className="related-link">B · {b.id} — {b.title}</Link></div>
     </div>;
   }
-  return <div className="page page--paper"><Link to="/verify" className="back-link">← VERIFICATION TRAIL</Link><Heading eyebrow="EVALUATION LOOKUP" title={decodeURIComponent(id)} intro="A returned record is chain-observed. Lifecycle status is shown only when supported by a locally observed transaction." side={<StatusTag tone={tx?.status === 'finalized' ? 'good' : 'warn'}>{tx?.status ?? 'LIFECYCLE UNKNOWN'}</StatusTag>} />{chainResult?.evaluation_id ? <><DataNote>Evaluator view response. Record IDs and digests are caller-supplied references, not proof of Registry membership.</DataNote><ResultPanel result={chainResult} id={chainResult.evaluation_id}/></> : <div className="empty-state"><span>?</span><b>{message || 'Evaluation not loaded'}</b><p>{tx ? `Local transaction status: ${tx.status}.` : 'Configure an Evaluator address or open one of the fictional examples.'}</p><Link className="button button--dark" to="/settings">Configure address</Link></div>}</div>;
+  const recordStatus = evaluationRecordStatus(tx);
+  return <div className="page page--paper"><Link to="/verify" className="back-link">← VERIFICATION TRAIL</Link><Heading eyebrow="EVALUATION LOOKUP" title={decodeURIComponent(id)} intro="A returned record is a contract view response. Transaction finality is displayed only when supported by a locally observed lifecycle." side={<StatusTag tone={recordStatus.finalized ? 'good' : 'warn'}>{recordStatus.label}</StatusTag>} />{chainResult?.evaluation_id ? <><DataNote>Evaluator contract record read. Record IDs and digests are caller-supplied references, not proof of Registry membership. The view alone does not prove transaction finality.</DataNote><ResultPanel result={chainResult} id={chainResult.evaluation_id} statusLabel={recordStatus.label} finalized={recordStatus.finalized}/></> : <div className="empty-state"><span>?</span><b>{message || 'Evaluation not loaded'}</b><p>{tx ? `Local transaction status: ${tx.status}.` : 'Configure an Evaluator address or open one of the fictional examples.'}</p><Link className="button button--dark" to="/settings">Configure address</Link></div>}</div>;
 }
 
 export function GraphPage() {
