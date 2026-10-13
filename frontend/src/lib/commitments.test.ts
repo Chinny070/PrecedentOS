@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import vector from './commitment_vectors.json';
 import {
   codePointLength, encodeEvaluationCommitmentFields, evaluationInputCommitment,
   sha256Utf8, validDecisionDate, validMetadataLabel, validRecordId, validateEvidencePacket,
@@ -21,6 +22,21 @@ describe('browser commitment compatibility', () => {
   it('matches the checked-in cross-language v1 input-commitment vector', async () => {
     const input = { evaluationId: 'EVAL-1', recordAId: 'A-001', recordADigest: 'a'.repeat(64), recordBId: 'B-002', recordBDigest: 'b'.repeat(64), evidenceSchemaVersion: 1, criteriaVersion: 1, criteria: 'Compare the stated rule.' };
     expect(await evaluationInputCommitment(input)).toBe('5f1b211920a4d2b67dff569c337ae00e56fa3e1642721e1b42def9742b0bedf2');
+  });
+
+  it('matches SHA-256 and v1 commitment bytes shared with the Python contract regression test', async () => {
+    expect(await sha256Utf8(vector.passageA)).toBe(vector.recordADigest);
+    expect(await sha256Utf8(vector.passageB)).toBe(vector.recordBDigest);
+    expect(await evaluationInputCommitment({
+      evaluationId: vector.evaluationId,
+      recordAId: vector.recordAId,
+      recordADigest: vector.recordADigest,
+      recordBId: vector.recordBId,
+      recordBDigest: vector.recordBDigest,
+      evidenceSchemaVersion: vector.evidenceSchemaVersion,
+      criteriaVersion: vector.criteriaVersion,
+      criteria: vector.criteria,
+    })).toBe(vector.inputCommitment);
   });
 });
 

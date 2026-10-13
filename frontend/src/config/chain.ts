@@ -14,4 +14,5 @@ export const addresses = {
 };
 
 export const hasConfiguredContracts = Boolean(addresses.registry && addresses.evaluator);
-export const isAddress = (value: string): value is `0x${string}` => /^0x[0-9a-fA-F]{40}$/.test(value);
+export const isAddress = (value: string): value is `0x${string}` =>
+  /^0x[0-9a-fA-F]{40}$/.test(value) && !/^0x0{40}$/i.test(value);

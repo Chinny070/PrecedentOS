@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --configLoader native",
+    "test:watch": "vitest --configLoader native"
   },
   "dependencies": {
     "genlayer-js": "1.1.8",

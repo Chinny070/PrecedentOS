@@ -38,8 +38,11 @@ export interface Evaluation {
 export interface TransactionTrace {
   hash: `0x${string}`;
   action: string;
-  status: 'submitted' | 'processing' | 'accepted' | 'finalized' | 'failed' | 'unknown';
+  status: 'submitted' | 'pending' | 'processing' | 'accepted' | 'finalized' | 'failed' | 'unknown';
   submittedAtLocal: string;
   finalizedAtObserved?: string;
   detail?: string;
+  /** Set after hydration: localStorage is editable and is not live chain evidence. */
+  storedLocally?: boolean;
+  lastObservedStatus?: TransactionTrace['status'];
 }

@@ -578,3 +578,8 @@ button:disabled { opacity: .46; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.route-loading { min-height: 100dvh; display: grid; place-content: center; gap: 16px; background: var(--paper, #eee9dc); color: var(--ink, #17251f); font: 700 11px/1.2 var(--font-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
+.route-loading span { justify-self: center; width: 24px; height: 24px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: route-loading-turn .8s linear infinite; }
+@keyframes route-loading-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .route-loading span { animation: none; } }

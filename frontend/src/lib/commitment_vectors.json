@@ -1,0 +1,14 @@
+{
+  "evaluationId": "EVAL-CROSS-LANG-001",
+  "recordAId": "FICT-CROSS-001",
+  "passageA": "Fictional evidence: café stayed open until 21:00. ☕",
+  "recordADigest": "884c3bd4a408eddb5b4e4f2efd66368950ace269d7e3b54997170f08b4f210c6",
+  "recordBId": "FICT-CROSS-002",
+  "passageB": "Fictional evidence: café closed at 20:00. —",
+  "recordBDigest": "65137d6963c07918aef61846c06e9ad3884225ea503d903d39dc0a5d14d6fb68",
+  "evidenceSchemaVersion": 1,
+  "criteriaVersion": 1,
+  "evaluationSchemaVersion": 1,
+  "criteria": "Compare the café rule, facts, outcome, and exception.",
+  "inputCommitment": "3b7be5e1cd79aeb3964a3b32c3cfff9fadec57b2549dce0a687cd65ea18cee08"
+}

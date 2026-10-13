@@ -9,6 +9,8 @@ ROOT = Path(__file__).parents[1]
 CONTRACT = ROOT / "contracts" / "precedent_evaluator.py"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "fictional_evaluations.json"
 FIXTURE = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+COMMITMENT_VECTOR_PATH = ROOT / "frontend" / "src" / "lib" / "commitment_vectors.json"
+COMMITMENT_VECTOR = json.loads(COMMITMENT_VECTOR_PATH.read_text(encoding="utf-8"))
 PROMPT_MARKER = "Compare these two fictional precedent packets"
 CASES = FIXTURE["cases"]
 CRITERIA = FIXTURE["criteria"]
@@ -121,6 +123,29 @@ def test_matching_precedents_persist_bounded_provenance(direct_vm, direct_deploy
     assert stored["input_commitment"] == _input_commitment(arguments("matching"))
     assert json.loads(stored["similarities_json"])
     assert contract.get_evaluation_count() == 1
+
+
+def test_frontend_sha256_and_commitment_vector_matches_python_contract(direct_vm, direct_deploy):
+    vector = COMMITMENT_VECTOR
+    contract = deploy(direct_deploy)
+    packet = json.dumps(
+        {"precedent_a": vector["passageA"], "precedent_b": vector["passageB"]},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    args = [
+        vector["evaluationId"], vector["recordAId"], vector["recordADigest"],
+        vector["recordBId"], vector["recordBDigest"], packet,
+        vector["evidenceSchemaVersion"], vector["criteriaVersion"], vector["criteria"],
+    ]
+    assert _digest(vector["passageA"]) == vector["recordADigest"]
+    assert _digest(vector["passageB"]) == vector["recordBDigest"]
+    assert _input_commitment(args) == vector["inputCommitment"]
+
+    mock_result(direct_vm, answer_for_case("matching"))
+    contract.evaluate_pair(*args)
+    assert direct_vm.run_validator() is True
+    assert contract.get_evaluation(vector["evaluationId"])["input_commitment"] == vector["inputCommitment"]
 
 
 def test_similar_issue_with_explained_outcome_difference_is_not_labeled_contradiction(direct_vm, direct_deploy):

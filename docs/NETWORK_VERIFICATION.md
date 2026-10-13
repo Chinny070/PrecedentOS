@@ -2,26 +2,29 @@
 
 ## Intended target
 
-The frontend uses the GenLayerJS 1.1.8 `studionet` chain definition and expects chain ID 61999. A local Node import of the installed package returned chain ID `61999` and RPC `https://studio.genlayer.com/api`; this inspected the SDK definition only, and did not call that endpoint. The SDK-supplied RPC is used for the optional read-only identity check. Contract addresses are not bundled; the user may enter public addresses in Settings, where they are stored only in browser local storage and are not checked against a deployment registry.
+The frontend pins `genlayer-js` **1.1.8** and uses its `studionet` chain object. A local runtime check of the installed package reported chain ID **61999** and RPC `https://studio.genlayer.com/api`. This verifies the SDK's bundled network definition only. A one-time read-only `eth_chainId` request was attempted on 2026-10-13, but Windows denied the outbound socket before an HTTP response; the endpoint's live identity therefore remains **unverified**.
+
+Contract addresses are not bundled. Settings stores user-entered public addresses in browser local storage. The frontend rejects malformed and zero addresses, but a nonzero 20-byte address still does not prove code identity, deployment, ownership, or network provenance.
 
 ## What the application can claim
 
-- Demo: bundled fictional fixtures; no chain operation took place.
-- Submitted: the browser received a transaction hash from GenLayerJS. This is not acceptance or finality.
-- Finalized (observed): GenLayerJS 1.1.8 `waitForTransactionReceipt` returned for `TransactionStatus.FINALIZED` and the receipt contained `ExecutionResult.FINISHED_WITH_RETURN`; the observation time is local-device time. Finalized execution errors are not labeled successful.
-- Chain observed: a configured keyed view returned a record. It does not prove source authenticity or complete corpus coverage.
-- Unknown: an RPC/lifecycle request did not establish an outcome. Do not treat unknown as failed and do not resubmit automatically.
+- **Demo:** bundled fictional fixtures; no chain operation took place.
+- **Submitted:** the browser received a syntactically valid transaction hash from GenLayerJS. This is not acceptance or finality.
+- **Pending / processing:** the pinned SDK reports a stored non-final status. These are browser observations and may change.
+- **Accepted:** the SDK reports `ACCEPTED`; this is shown separately from finality.
+- **Finalized (observed):** GenLayerJS 1.1.8 returned a `FINALIZED` receipt with `FINISHED_WITH_RETURN`. The observation time is local-device time.
+- **Failed:** the pinned SDK reports `CANCELED` or a `FINALIZED` receipt with `FINISHED_WITH_ERROR`.
+- **Unknown:** the RPC/lifecycle request timed out, returned an incomplete final receipt, or otherwise did not establish successful execution. No automatic resubmission occurs.
+- **Chain observed:** a configured keyed view returned a record. This does not prove source authenticity or complete corpus coverage.
 
-## Read-only network identity
-
-Settings can send `eth_chainId` to the HTTP URL from `studionet.rpcUrls.default.http[0]`. It has an 8-second browser timeout and makes no wallet request. A response matching 61999 verifies only that endpoint's reported identity; it is not evidence of deployed PrecedentOS contracts. The check is implemented but has not been run.
+Transactions hydrated from browser storage are demoted to **local note / last seen**. A user can edit local storage; saved statuses, hashes, and device timestamps are not treated as current chain evidence until checked again.
 
 ## Timestamp model
 
-`decision_date` is submitter-provided. `submittedAtLocal` and `finalizedAtObserved` are device-clock observations, explicitly labeled as such. Current contracts expose a registration sequence but no timestamp field; the app does not convert sequence numbers into time. Block timestamps and authoritative finality timestamps are not implemented.
+`decision_date` is submitter-provided. `submittedAtLocal` and `finalizedAtObserved` are device-clock observations. Current contracts expose a registration sequence but no timestamp field; the app does not convert sequence numbers into time. Block timestamps and authoritative finality timestamps are not implemented.
 
 ## SDK compatibility boundary
 
-The checked-in frontend pins `genlayer-js` 1.1.8. Installed package declarations and strict TypeScript checking confirm the chain definition's ID and the adapter's declared API usage. The v1.1.8 package API differs from the current online GenLayerJS API page, which documents newer fee-estimation and finalization names. The adapter follows the pinned package README/types; do not copy newer names without upgrading and retesting the SDK.
+The pinned package's README, declaration files, and runtime exports are the compatibility authority for the application. In 1.1.8, the supported client surface used here is `createClient`, `connect('studionet')`, `readContract`, `writeContract`, `getTransaction`, and `waitForTransactionReceipt({ status: TransactionStatus.FINALIZED })`; `GenLayerTransaction` exposes `statusName` and `txExecutionResultName`. The 1.1.8 runtime does not expose newer methods such as `waitForFinalization` or `isSuccessful` described by current online documentation. See [Studionet integration readiness](STUDIONET_INTEGRATION_READINESS.md) for the audited version-specific details.
 
-Compile-time compatibility does not prove current network compatibility. Before enabling writes, verify chain identity against the live endpoint, inspect independently verified deployment addresses/schema, then perform approved read and write lifecycle checks. No endpoint probe, wallet action, contract interaction, AI call, validator consensus, or live finality observation occurred in this pass.
+Compile-time/runtime package checks do not prove live network or validator compatibility. Before any deployment or write, verify the RPC reports 61999, independently verify published contract addresses and code/schema, review the final calldata and wallet, then perform separately approved deployment and transaction checks. No wallet signature, deployment, write, AI execution, validator consensus, or live finality observation occurred in this pass.

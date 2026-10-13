@@ -12,7 +12,7 @@ import {
 } from '../lib/commitments';
 import {
   createReadClient, probeStudionetRpc, readEvaluation, readPrecedent,
-  waitForFinalizedResult, writeContractMethod,
+  trackTransactionLifecycle, writeContractMethod,
 } from '../lib/genlayer/client';
 import type { Precedent, TransactionTrace } from '../types/domain';
 
@@ -73,7 +73,7 @@ export function PrecedentsPage() {
     if (!isAddress(addresses.registry)) { setMessage('Add a Registry contract address in Settings before making a chain lookup.'); return; }
     if (!validRecordId(lookup)) { setMessage('Enter a valid uppercase record ID, for example FICT-MUNI-001.'); return; }
     try {
-      const record = await readPrecedent(createReadClient(), addresses.registry, lookup);
+      const record = await readPrecedent(await createReadClient(), addresses.registry, lookup);
       if (!record.record_id) { setMessage('No record was returned for that ID at the configured Registry address.'); return; }
       setFound({ id: record.record_id, title: record.category, jurisdiction: record.jurisdiction, decisionDate: record.decision_date, category: record.category, court: 'Submitter supplied', outcome: 'Outcome not in Registry metadata', summary: 'Chain-observed Registry metadata only. The contract stores a digest, not the case passage.', passage: '', documentDigest: record.evidence_digest, provenance: 'chain-observed', citedIds: [], accent: 'cyan' });
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The Registry read failed.'); }
@@ -91,7 +91,7 @@ export function PrecedentsPage() {
 }
 
 export function RegisterPage() {
-  const { wallet, addresses, saveTransaction } = useApp();
+  const { wallet, addresses, saveTransaction, updateTransaction } = useApp();
   const [recordId, setRecordId] = useState('FICT-NEW-007');
   const [jurisdiction, setJurisdiction] = useState('Fictional North District');
   const [decisionDate, setDecisionDate] = useState('2030-08-19');
@@ -114,10 +114,10 @@ export function RegisterPage() {
     if (!ready || !wallet) { setStatus('Connect a Studionet wallet and configure the Registry address to submit.'); return; }
     setBusy(true);
     try {
-      const hash = await writeContractMethod(wallet.client, addresses.registry, 'register_precedent', [recordId, digest, 1, jurisdiction, decisionDate, category]);
+      const hash = await writeContractMethod(wallet, addresses.registry, 'register_precedent', [recordId, digest, 1, jurisdiction, decisionDate, category]);
       const tx: TransactionTrace = { hash, action: `Register ${recordId}`, status: 'submitted', submittedAtLocal: new Date().toISOString() };
       saveTransaction(tx); setStatus(`Submitted ${hash}. The browser observed submission at ${tx.submittedAtLocal}; this is not a chain timestamp.`);
-      void waitForFinalizedResult(wallet.client, hash).then((result) => saveTransaction({ ...tx, status: result.successful ? 'finalized' : 'failed', finalizedAtObserved: new Date().toISOString(), detail: result.detail || result.status })).catch((error: unknown) => saveTransaction({ ...tx, status: 'unknown', detail: error instanceof Error ? error.message : 'Finalization could not be observed.' }));
+      void trackTransactionLifecycle(wallet.client, hash, (update) => updateTransaction(hash, { ...update, storedLocally: false }));
     } catch (error) { setStatus(error instanceof Error ? error.message : 'The write was not submitted.'); }
     finally { setBusy(false); }
   }
@@ -138,7 +138,7 @@ export function RegisterPage() {
 }
 
 export function ComparePage() {
-  const { wallet, addresses, saveTransaction } = useApp();
+  const { wallet, addresses, saveTransaction, updateTransaction } = useApp();
   const [idA, setIdA] = useState(DEMO_PRECEDENTS[0].id);
   const [idB, setIdB] = useState(DEMO_PRECEDENTS[1].id);
   const [passageA, setPassageA] = useState(DEMO_PRECEDENTS[0].passage);
@@ -167,15 +167,19 @@ export function ComparePage() {
     setEvaluationId(nextId); setBusy(true);
     try {
       const packet = makeEvaluationPacket(passageA, passageB);
-      const hash = await writeContractMethod(wallet.client, addresses.evaluator, 'evaluate_pair', [nextId, idA, digestA, idB, digestB, packet, 1, 1, criteria]);
+      const hash = await writeContractMethod(wallet, addresses.evaluator, 'evaluate_pair', [nextId, idA, digestA, idB, digestB, packet, 1, 1, criteria]);
       const tx: TransactionTrace = { hash, action: `Compare ${idA} × ${idB}`, status: 'submitted', submittedAtLocal: new Date().toISOString() };
       saveTransaction(tx); setMessage(`Submitted ${hash}. Waiting for the actual transaction lifecycle; no result is assumed from submission.`);
-      void waitForFinalizedResult(wallet.client, hash).then(async (finalized) => {
-        if (!finalized.successful) { saveTransaction({ ...tx, status: 'failed', finalizedAtObserved: new Date().toISOString(), detail: finalized.detail || finalized.status }); setMessage(`Transaction finalized without successful execution: ${finalized.detail || finalized.status}.`); return; }
-        saveTransaction({ ...tx, status: 'finalized', finalizedAtObserved: new Date().toISOString(), detail: finalized.detail || finalized.status });
-        const value = await readEvaluation(wallet.client, addresses.evaluator, nextId);
-        setResult(value); setMessage('Finalized and read back from the configured Evaluator. This does not establish legal correctness.');
-      }).catch((error: unknown) => { saveTransaction({ ...tx, status: 'unknown', detail: error instanceof Error ? error.message : 'Finalization is not yet observable.' }); setMessage('Submission is recorded locally, but finalization could not be observed. Check the verification trail by hash.'); });
+      void trackTransactionLifecycle(wallet.client, hash, (update) => {
+        updateTransaction(hash, { ...update, storedLocally: false });
+        if (update.status === 'failed') setMessage(`The transaction did not complete successfully: ${update.detail}`);
+        if (update.status === 'unknown') setMessage(`Transaction status is unresolved: ${update.detail}`);
+        if (update.status === 'finalized') {
+          void readEvaluation(wallet.client, addresses.evaluator, nextId)
+            .then((value) => { setResult(value); setMessage('Finalized and read back from the configured Evaluator. This does not establish legal correctness.'); })
+            .catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Finalized evaluation readback failed.'));
+        }
+      });
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The comparison was not submitted.'); }
     finally { setBusy(false); }
   }
@@ -219,7 +223,7 @@ export function PrecedentDetailPage() {
   const [message, setMessage] = useState('');
   useEffect(() => {
     if (fixture || !isAddress(addresses.registry)) return;
-    void readPrecedent(createReadClient(), addresses.registry, decoded).then(setChainRecord).catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Chain read unavailable.'));
+    void createReadClient().then((client) => readPrecedent(client, addresses.registry, decoded)).then(setChainRecord).catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Chain read unavailable.'));
   }, [fixture, addresses.registry, decoded]);
   if (fixture) return <div className="page page--paper"><Link to="/precedents" className="back-link">← ALL SIX DEMO RECORDS</Link><Heading eyebrow="FICTIONAL CASE / READ ONLY" title={<>{fixture.title}</>} intro={fixture.summary} side={<StatusTag tone="demo">DEMO FIXTURE</StatusTag>} /><div className="detail-grid"><article className="detail-sheet"><SectionLabel index="01">RECORD SUMMARY</SectionLabel><div className="detail-facts"><div><span>RECORD ID</span><b>{fixture.id}</b></div><div><span>JURISDICTION</span><b>{fixture.jurisdiction}</b></div><div><span>DECISION DATE · SUBMITTER CLAIM</span><b>{fixture.decisionDate}</b></div><div><span>CATEGORY</span><b>{fixture.category}</b></div><div><span>ILLUSTRATIVE OUTCOME</span><b>{fixture.outcome}</b></div><div><span>SOURCE</span><b>{fixture.court}</b></div></div><SectionLabel index="02">PASSAGE SPECIMEN / PUBLIC FICTION</SectionLabel><blockquote>{fixture.passage}</blockquote><p className="detail-caution">This is a demo text specimen. Its digest is not registered on chain.</p><Link to={`/compare?${new URLSearchParams({ a: fixture.id })}`} className="button button--dark">Compare this precedent <Icon name="arrow" size={16}/></Link></article><aside className="detail-aside"><SectionLabel index="03">PROVENANCE</SectionLabel><StatusTag tone="demo">SOURCE: CURATED FIXTURE</StatusTag><div className="provenance-timeline"><div><span className="timeline-dot demo"/><b>Demo data loaded</b><small>Local browser bundle · not chain observed</small></div><div><span className="timeline-dot muted"/><b>Registration sequence</b><small>Unavailable in fixture</small></div><div><span className="timeline-dot muted"/><b>Block timestamp</b><small>Unknown · not fabricated</small></div></div><h4>FICTIONAL REFERENCES</h4>{fixture.citedIds.length ? fixture.citedIds.map((other) => <Link className="related-link" to={`/precedents/${other}`} key={other}>{other} <Icon name="arrow" size={14}/></Link>) : <p className="muted-copy">No explicit links in this example.</p>}<Link to="/verify" className="text-link">Open verification trail ↗</Link></aside></div></div>;
   const digest = chainRecord?.evidence_digest;
@@ -234,7 +238,7 @@ export function EvaluationDetailPage() {
   const [message, setMessage] = useState('');
   useEffect(() => {
     if (demo || !isAddress(addresses.evaluator)) return;
-    void readEvaluation(createReadClient(), addresses.evaluator, decodeURIComponent(id)).then(setChainResult).catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Evaluator read unavailable.'));
+    void createReadClient().then((client) => readEvaluation(client, addresses.evaluator, decodeURIComponent(id))).then(setChainResult).catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Evaluator read unavailable.'));
   }, [demo, addresses.evaluator, id]);
   if (demo) {
     const a = DEMO_PRECEDENTS.find((item) => item.id === demo.a)!; const b = DEMO_PRECEDENTS.find((item) => item.id === demo.b)!;
@@ -272,10 +276,10 @@ export function SimulatePage() {
 export function VerifyPage() {
   const { transactions } = useApp(); const [query, setQuery] = useState('');
   const filtered = transactions.filter((tx) => `${tx.hash} ${tx.action}`.toLowerCase().includes(query.toLowerCase()));
-  const tone = (status: TransactionTrace['status']) => status === 'finalized' ? 'good' as const : status === 'failed' ? 'bad' as const : status === 'unknown' ? 'warn' as const : 'neutral' as const;
-  return <div className="page page--paper"><Heading eyebrow="PROVENANCE / 06" title={<>Follow the<br/><em>transaction.</em></>} intro="This browser remembers only transaction hashes and local observations you initiated here. It is not an indexer or a source of complete chain history." side={<StatusTag tone="warn">NO EXPLORER URL VERIFIED</StatusTag>} /><DataNote>Transaction submission and finalization are separate events. Device observation time is not a block timestamp.</DataNote>
+  const tone = (status: TransactionTrace['status'], stored: boolean) => stored ? 'warn' as const : status === 'finalized' ? 'good' as const : status === 'failed' ? 'bad' as const : status === 'unknown' ? 'warn' as const : 'neutral' as const;
+  return <div className="page page--paper"><Heading eyebrow="PROVENANCE / 06" title={<>Follow the<br/><em>transaction.</em></>} intro="This browser remembers only transaction hashes and local observations you initiated here. It is not an indexer or a source of complete chain history." side={<StatusTag tone="warn">NO EXPLORER URL VERIFIED</StatusTag>} /><DataNote>Browser history is editable local storage. Reloaded entries are shown as unverified local notes until freshly checked against the configured network.</DataNote>
     <label className="search-input verify-search"><Icon name="search"/><input aria-label="Filter observed transaction history" placeholder="Filter local hashes or action" value={query} onChange={(e) => setQuery(e.target.value)}/></label>
-    {filtered.length ? <div className="transaction-list">{filtered.map((tx) => <article className="transaction-card" key={tx.hash}><div className="tx-card-head"><StatusTag tone={tone(tx.status)}>{tx.status.toUpperCase()}</StatusTag><Mono>{tx.action}</Mono></div><code>{tx.hash}</code><div className="tx-meta"><span><b>SUBMITTED AT · DEVICE OBSERVATION</b>{new Date(tx.submittedAtLocal).toLocaleString()}</span><span><b>FINALIZED AT · OBSERVED HERE</b>{tx.finalizedAtObserved ? new Date(tx.finalizedAtObserved).toLocaleString() : 'Not observed'}</span></div>{tx.detail && <p className="tx-detail">{tx.detail}</p>}</article>)}</div> : <div className="empty-state"><span>⌁</span><b>{transactions.length ? 'No local matches' : 'No locally observed writes'}</b><p>Writes remain disabled until a wallet and a real contract address are configured. Demo data creates no transaction history.</p><Link to="/settings" className="button button--dark">Review configuration</Link></div>}
+    {filtered.length ? <div className="transaction-list">{filtered.map((tx) => <article className="transaction-card" key={tx.hash}><div className="tx-card-head"><StatusTag tone={tone(tx.status, Boolean(tx.storedLocally))}>{tx.storedLocally ? `LOCAL NOTE · LAST SEEN ${tx.lastObservedStatus ?? 'UNKNOWN'}` : tx.status.toUpperCase()}</StatusTag><Mono>{tx.action}</Mono></div><code>{tx.hash}</code><div className="tx-meta"><span><b>SUBMITTED AT · DEVICE OBSERVATION</b>{new Date(tx.submittedAtLocal).toLocaleString()}</span><span><b>{tx.storedLocally ? 'FINALIZATION TIME · UNVERIFIED LOCAL NOTE' : 'FINALIZED AT · OBSERVED HERE'}</b>{tx.finalizedAtObserved ? new Date(tx.finalizedAtObserved).toLocaleString() : 'Not observed'}</span></div>{tx.detail && <p className="tx-detail">{tx.detail}</p>}</article>)}</div> : <div className="empty-state"><span>⌁</span><b>{transactions.length ? 'No local matches' : 'No locally observed writes'}</b><p>Writes remain disabled until a wallet and a real contract address are configured. Demo data creates no transaction history.</p><Link to="/settings" className="button button--dark">Review configuration</Link></div>}
     <div className="lifecycle-rail"><span>SUBMITTED</span><i/><span>PROCESSING</span><i/><span>ACCEPTED</span><i/><span>FINALIZED</span><p>A hash alone does not prove accepted execution or finality.</p></div>
   </div>;
 }
