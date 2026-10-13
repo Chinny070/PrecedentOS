@@ -102,3 +102,16 @@ The user's new instruction reports that their ordinary PowerShell previously ret
 | Studio browser deployment | **Documentation-confirmed / not started** | [Studio deploy docs](https://docs.genlayer.com/developers/intelligent-contracts/tools/genlayer-studio/deploying-contract) describe constructor detection and deploy UI; no UI interaction/deployment was performed. |
 
 The current docs' v2 GenLayerJS fee/deploy examples and matching Studio-dev release-candidate guidance do not establish compatibility or incompatibility for the installed GenLayerJS 1.1.8 on stable Studionet. No speculative SDK upgrade was performed. Exact manual checks are in `V2_LIVE_VERIFICATION_CHECKLIST.md`.
+
+## Stage 3B additions (2026-10-13)
+
+| Capability | Stage 3B status | Evidence boundary |
+|---|---|---|
+| `gl.nondet.exec_prompt(prompt, response_format="json")` | **Documentation-confirmed / LOCALLY TESTED with mocks** | Official [Calling LLMs](https://docs.genlayer.com/developers/intelligent-contracts/features/calling-llms) and [prompt techniques](https://docs.genlayer.com/developers/intelligent-contracts/crafting-prompts) show this call shape. Direct Mode uses injected fake output only. |
+| `gl.vm.run_nondet_unsafe(leader_fn, validator_fn)` | **Documentation-confirmed / LOCALLY TESTED with mocks** | Official [non-determinism](https://docs.genlayer.com/developers/intelligent-contracts/features/non-determinism) and [Equivalence Principle](https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle) describe independent validation and post-return state writes. No real validator consensus. |
+| `gl.message.chain_id`, `gl.message.contract_address`, `gl.message.sender_address` | **Documentation-confirmed / LOCALLY TESTED in Direct Mode** | Current [Messages](https://docs.genlayer.com/developers/intelligent-contracts/features/messages) documents transaction context (and shows `contract_address` in an IC interface example); Direct Mode record commitments parity passes. Exact stable runner behavior is unresolved. |
+| SHA-256 evidence bytes and ordered root | **IMPLEMENTED / LOCALLY TESTED** | UTF-8 bytes, SHA-256, Stage 3A Python helper parity tests. Digest integrity is not source authenticity. |
+| CaseCourt append after EP returns | **IMPLEMENTED / LOCALLY TESTED (mocked path)** | Source writes only after `run_nondet_unsafe` returns. Direct Mode cannot establish deployed transaction rollback or validator disagreement semantics. |
+| CaseCourt judgment state, stable finality, cost | **BLOCKED** | No deployment, local Studio test, live receipt, current stable runner mapping or fee profile. |
+
+The installed GenLayer Python SDK package was not importable as a normal host Python module (`ModuleNotFoundError: genlayer`); Direct Mode loads the contract under its extracted test runtime. Cached GenVM lint passed CaseCourt and reported the cached runner hash `py-genlayer:babwp9t37jw9g4j2bccgn14g6x7x9s1f7dsmh7emvz735pz4zxa0`; upstream runner resolution was blocked by Windows socket error 10013. These checks do not prove current stable Studionet compatibility. See `V2_STAGE_3B_REPORT.md` for exact commands and test counts.

@@ -1,8 +1,8 @@
 # PrecedentOS 2.0 Implementation Masterplan
 
-**Current stage:** Stage 3A case-bound decision design and deterministic preparation completed locally; runtime and authority gates remain open. Stage 2 was pushed in commit `9644d9915f1c122f326c81690a1b8959c65ae9dd`.
+**Current stage:** Stage 3B CaseCourt-owned AI judgment implementation is locally complete; stable runtime, live validator consensus, finality, cost and legal-policy gates remain open. Stage 3A was preserved in commit `6609b63` and normally pushed to origin/main.
 **Target:** stable GenLayer Studionet, expected chain ID `61999`.
-**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 3A commit/push.
+**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 3B commit/push.
 
 ### Stage 2 execution note (2026-10-13)
 
@@ -11,6 +11,10 @@ Stage 1 CaseCourt is preserved at commit `c9e2b0ee0fee12f1337630141783f73507a920
 ### Stage 3A execution note (2026-10-13)
 
 Stage 2 was committed as `9644d9915f1c122f326c81690a1b8959c65ae9dd` and a normal push was acknowledged by GitHub for `main`. An independent `git ls-remote` immediately afterward failed due this host's GitHub socket restriction, so a separate remote SHA read is not claimed. Stage 3A adds only local-only Python/TypeScript schema/commitment checks and documentation; it does not alter production contracts or enable an authoritative decision path. The recommended future architecture is CaseCourt-owned AI adjudication (B), with finalized child messages reserved for finality-dependent side effects (C); no such runtime behavior is asserted. See `V2_STAGE_3A_REPORT.md`, `V2_CASE_BOUND_DECISION_DESIGN.md`, and `V2_LIVE_VERIFICATION_CHECKLIST.md`.
+
+### Stage 3B execution note (2026-10-13)
+
+Stage 3B added CaseCourt lock-time ordered evidence commitments, bounded `adjudicate_case` and `get_judgment`, custom Equivalence Principle comparisons, SHA-bound input/result records, and appeal filing bindings. Full evidence text is not persisted. Frontend changes are type/interface only; no active write control was added. Direct Mode tests mock model/validator outputs, and cached GenVM lint passes, but this host cannot resolve the authoritative stable runner. This is not live consensus or finality verification. Stage 3B changes remain uncommitted/unpushed. See the Stage 3B report and schema/EP/security documents.
 
 ## 1. Dependency graph
 
@@ -55,6 +59,14 @@ Do not implement dependent features around an unverified call path. Existing Reg
 **Not implemented:** no production Court adjudication method, Registry/Evaluator contract call, child transaction, appeal disposition, runtime adapter or live deployment. Current CaseCourt continues to label its decision references unverified.
 
 **Exit criteria:** Python and TypeScript hashes match shared test vectors; adversarial binding/replay/finality checks pass locally; all eleven runtime capabilities have explicit status; user-facing steps are reproducible; production contract source is unchanged. Runtime gates remain open for Stage 3B.
+
+### Stage 3B — Case-bound AI judgment and custom EP (implemented locally, gates open)
+
+**Implemented:** lock-time ordered evidence root; exact evidence-byte verification; snapshot-bound fixed criteria; bounded v1 judgment schema; case/chain/Court/version/input/result commitments; `run_nondet_unsafe` validator field comparison; immutable CaseCourt judgment record/action; appeal ID/version/root/filing binding; TypeScript result/read/write adapter types without an enabled write UI.
+
+**Locally tested:** mocked accepted result, missing lock, wrong version, unauthorized caller, wrong/reordered/oversized evidence, malformed/invalid/contradictory output, validator disagreement callback, failed model path, duplicate/replayed ID, frozen case, appeal binding, and Python/contract commitment parity. Direct Mode behavior is mocked; no live consensus or rollback claim is made.
+
+**BLOCKED:** stable runner mapping, real validator acceptance/disagreement, failure rollback, fee profiling, real receipt/finality, independent legal-policy/security review. Do not label a judgment FINALIZED until the actual successful finalized receipt is verified. The frontend remains write-disabled.
 
 ### Stage 3 — CaseCourt deterministic lifecycle core
 

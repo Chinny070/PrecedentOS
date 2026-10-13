@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import json
 import re
 from typing import Iterable, Mapping, Sequence
 
@@ -239,6 +240,43 @@ def case_decision_result_digest(
             classification,
             recommended_outcome,
             "true" if evidence_sufficient else "false",
+            reasons_digest,
+        ]
+    )
+
+
+def case_judgment_commitment(*, input_commitment: str, result: Mapping[str, object]) -> str:
+    """Mirror the Stage 3B CaseCourt digest over every persisted judgment field."""
+    _require_digest(input_commitment, "input_commitment")
+    required = (
+        "outcome_classification", "material_findings", "evidence_sufficient",
+        "material_issue_determined", "decision_eligible", "relevant_rule_application",
+        "applicable_criteria", "recommended_outcome", "reasoning_summary", "uncertainty_flags",
+    )
+    if set(result) != set(required):
+        raise DecisionValidationError("invalid_case_judgment_result")
+    for name in ("material_findings", "applicable_criteria", "uncertainty_flags"):
+        if not isinstance(result[name], list) or any(not isinstance(item, str) for item in result[name]):
+            raise DecisionValidationError("invalid_case_judgment_list")
+    for name in ("evidence_sufficient", "material_issue_determined", "decision_eligible"):
+        if type(result[name]) is not bool:
+            raise DecisionValidationError("invalid_case_judgment_boolean")
+    if not isinstance(result["reasoning_summary"], str):
+        raise DecisionValidationError("invalid_case_judgment_reasoning")
+    reasons_digest = hashlib.sha256(str(result["reasoning_summary"]).encode("utf-8")).hexdigest()
+    return _sha256_fields(
+        [
+            "PrecedentOS-CASE-DECISION-RESULT-v1",
+            input_commitment,
+            str(result["outcome_classification"]),
+            str(result["recommended_outcome"]),
+            "true" if result["evidence_sufficient"] else "false",
+            "true" if result["material_issue_determined"] else "false",
+            "true" if result["decision_eligible"] else "false",
+            str(result["relevant_rule_application"]),
+            json.dumps(result["material_findings"], separators=(",", ":")),
+            json.dumps(result["applicable_criteria"], separators=(",", ":")),
+            json.dumps(result["uncertainty_flags"], separators=(",", ":")),
             reasons_digest,
         ]
     )

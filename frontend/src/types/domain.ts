@@ -79,6 +79,57 @@ export interface CaseCourtAction {
   recorded_at: string;
 }
 
+export type CaseJudgmentClassification =
+  | 'MERITS_SUPPORTED'
+  | 'MERITS_NOT_SUPPORTED'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'MATERIAL_CONFLICT';
+
+export type CaseJudgmentOutcome = 'GRANT' | 'DENY' | 'REMAND' | 'NO_RECOMMENDATION';
+export type CaseJudgmentRuleApplication = 'SATISFIED' | 'NOT_SATISFIED' | 'CONFLICTING' | 'UNDETERMINED';
+export type CaseJudgmentLifecycle =
+  | 'UNVERIFIED'
+  | 'LOCALLY_SIMULATED'
+  | 'SUBMITTED'
+  | 'PENDING'
+  | 'ACCEPTED_PROVISIONAL'
+  | 'FINALIZED'
+  | 'FAILED'
+  | 'UNKNOWN';
+
+export interface CaseCourtJudgmentResult {
+  outcome_classification: CaseJudgmentClassification;
+  material_findings: string[];
+  evidence_sufficient: boolean;
+  material_issue_determined: boolean;
+  decision_eligible: boolean;
+  relevant_rule_application: CaseJudgmentRuleApplication;
+  applicable_criteria: string[];
+  recommended_outcome: CaseJudgmentOutcome;
+  reasoning_summary: string;
+  uncertainty_flags: string[];
+}
+
+/** Read shape for an append-only CaseCourt judgment record. */
+export interface CaseCourtJudgment {
+  judgment_id: string;
+  chain_id: string;
+  court_address: `0x${string}`;
+  case_id: string;
+  case_version: string;
+  evidence_commitment: string;
+  criteria_version: string;
+  criteria_digest: string;
+  policy_version: string;
+  judgment_schema_version: string;
+  input_commitment: string;
+  judgment_commitment: string;
+  submitter: `0x${string}`;
+  authority_status: 'CASE_COURT_EP_ACCEPTED_REQUIRES_FINALITY';
+  recorded_at: string;
+  result_json: string;
+}
+
 export interface Precedent {
   id: string;
   title: string;

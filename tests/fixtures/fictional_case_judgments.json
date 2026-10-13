@@ -1,0 +1,16 @@
+{
+  "description": "Fictional, public test evidence; not legal advice or real case material.",
+  "case_id": "FICT-CASE-JUDGMENT-1",
+  "case_type": "Fictional notice dispute",
+  "policy_version": 1,
+  "evidence": [
+    {
+      "evidence_id": "FICT-EVIDENCE-NOTICE",
+      "text": "Fictional notice record: a dated notice was delivered to the fictional tenant before the response period began."
+    },
+    {
+      "evidence_id": "FICT-EVIDENCE-RESPONSE",
+      "text": "Fictional response record: the tenant replied within the stated period and disputed the fictional charge."
+    }
+  ]
+}
