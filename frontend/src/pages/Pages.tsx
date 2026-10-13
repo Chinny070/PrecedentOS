@@ -15,6 +15,7 @@ import {
   trackTransactionLifecycle, writeContractMethod,
 } from '../lib/genlayer/client';
 import type { Precedent, TransactionTrace } from '../types/domain';
+import { authorityDisclosure } from '../lib/authorityStatus';
 
 function Heading({ eyebrow, title, intro, side }: { eyebrow: string; title: ReactNode; intro?: string; side?: ReactNode }) {
   return <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>{eyebrow}</div><h1>{title}</h1>{intro && <p>{intro}</p>}</div>{side && <div className="page-heading-side">{side}</div>}</div>;
@@ -261,6 +262,23 @@ export function GraphPage() {
       {nodes.map((node) => { const [x,y] = positions[node.id]; return <g key={node.id} className="graph-node" tabIndex={0} role="link" aria-label={`Open ${node.id}`} onClick={() => { window.location.href = `/precedents/${node.id}`; }} onKeyDown={(event) => { if (event.key === 'Enter') window.location.href = `/precedents/${node.id}`; }}><circle cx={x} cy={y} r="35"/><text x={x} y={y+4} textAnchor="middle">{node.id.slice(-3)}</text><text x={x} y={y+58} textAnchor="middle" className="graph-node-id">{node.id}</text></g>; })}
     </svg></div>
     <div className="graph-list"><SectionLabel index="LINKS">ACCESSIBLE RELATIONSHIP LIST</SectionLabel>{edges.map((edge) => <div key={`${edge.from}-${edge.to}-${edge.type}`} className="graph-list-row"><b>{edge.from}</b><span>→ {edge.label}</span><b>{edge.to}</b></div>)}</div>
+  </div>;
+}
+
+export function TribunalPage() {
+  const [query, setQuery] = useState('');
+  const entries = [
+    { id: 'DEMO-CHALLENGE-01', left: 'FICT-MUNI-001', right: 'FICT-MUNI-002', status: 'AI_PROPOSED_NOT_AUTHORITATIVE', relation: 'DISTINGUISHED', note: 'The fictional sample describes different notice circumstances.' },
+    { id: 'DEMO-CHALLENGE-02', left: 'FICT-HOUS-004', right: 'FICT-HOUS-005', status: 'USER_ASSERTED_UNVERIFIED', relation: 'PENDING REVIEW', note: 'Participant-supplied assertion. No model or validator execution is represented.' },
+  ].filter((entry) => `${entry.id} ${entry.left} ${entry.right} ${entry.relation}`.toLowerCase().includes(query.toLowerCase()));
+  return <div className="page page--paper">
+    <Heading eyebrow="CONTRADICTION TRIBUNAL / 09" title={<>Challenge the<br/><em>comparison.</em></>} intro="A challenge is a bounded request to review two exact decision records. Different outcomes alone do not make a contradiction." side={<StatusTag tone="warn">LIVE CASECOURT READS DISABLED</StatusTag>} />
+    <DataNote>Everything below is fictional UI scaffolding. No challenge, authority edge, appeal, or reversal has been fetched from a chain.</DataNote>
+    <div className="tribunal-principles"><article><b>01 / IDENTITY</b><h3>Exact decision versions</h3><p>CaseCourt challenge records bind decision IDs, versions, commitments, evidence roots, criteria versions, and the Court address.</p></article><article><b>02 / REVIEW</b><h3>Compare material fields</h3><p>Validators compare classification and comparability flags. Reasoning prose can vary. Agreement is not a finding of legal correctness.</p></article><article><b>03 / AUTHORITY</b><h3>Proposal is not reversal</h3><p>Only a resolved CaseCourt appellate record may append a reversal or supersession edge. The original decision remains preserved.</p></article></div>
+    <div className="filter-bar"><div><span className="filter-overline">ILLUSTRATIVE QUEUE</span><strong>Challenges &amp; provenance</strong></div><label className="search-input"><Icon name="search"/><input aria-label="Filter fictional tribunal rows" placeholder="Filter demo IDs or decisions" value={query} onChange={(event) => setQuery(event.target.value)}/></label></div>
+    <div className="tribunal-list">{entries.map((entry) => { const disclosure = authorityDisclosure(entry.status); return <article className="tribunal-row" key={entry.id}><div className="tribunal-row-top"><Mono>{entry.id}</Mono><StatusTag tone="demo">FICTIONAL</StatusTag></div><div className="tribunal-pair"><b>{entry.left}</b><span>↔</span><b>{entry.right}</b></div><h3>{entry.relation.replaceAll('_', ' ')}</h3><p>{entry.note}</p><StatusTag tone="warn">{disclosure.label}</StatusTag><small>{disclosure.explanation}</small></article>; })}</div>
+    {entries.length === 0 && <div className="empty-state"><span>∅</span><b>No fictional rows match</b><p>Filtering applies only to these two illustrative examples.</p></div>}
+    <div className="bottom-disclaimer"><span>RUNTIME GATE / CLOSED</span><p>CaseCourt reads and writes remain unavailable in this interface until deployment address, ABI, stable runner compatibility, transaction lifecycle, and finality verification are established.</p><Link to="/verify">Review verification status <Icon name="arrow" size={14}/></Link></div>
   </div>;
 }
 

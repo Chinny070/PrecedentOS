@@ -1,8 +1,8 @@
 # PrecedentOS 2.0 Implementation Masterplan
 
-**Current stage:** Stage 4 CaseCourt appellate lifecycle is implemented locally and undergoing full regression; stable runtime, live validator consensus, finality, cost and legal-policy gates remain open.
+**Current stage:** Stage 6 contradiction/authority overlays and browser disclosure workflow are implemented and locally tested; Stage 7 security review is next. Stable runtime, live validator consensus, finality, cost and legal-policy gates remain open.
 **Target:** stable GenLayer Studionet, expected chain ID `61999`.
-**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 4 commit/push.
+**Constraints:** preserve v1 and Git history; browser + Intelligent Contracts only; no deployment, write transaction, dependency install, or Stage 6 commit/push.
 
 ### Stage 2 execution note (2026-10-13)
 
@@ -109,6 +109,10 @@ Do not implement dependent features around an unverified call path. Existing Reg
 **Scope:** review contract authorization, replays, freeze abuse, evidence privacy, prompt/web injection, URL egress, native/case appeal interactions, roles/DAO agents, fee/bond policy, state consistency and user-facing legal claims.
 
 **Exit criteria:** threat register closed or explicitly accepted; all critical/high findings fixed and regression-tested; fuzz/boundary tests pass; cost profiles for normal/max/appeal/web path within approved policy; independent reviewer signs off; no PII/private case data in source/tests/fixtures; source and generated schema hashes recorded.
+
+**Stage 7A audit result (2026-10-13):** three Stage 6 CaseCourt defects were fixed locally with focused regression tests: stale closure approval binding, raw multiline grounds in appeal/contradiction prompts, and contradiction/authority writes against frozen or appealed linked cases. Full protected Python suite: **220 passed, 2 skipped**; focused security suite: **32 passed**. Frontend lint/typecheck/build and **56 tests** pass; four cached GenVM lint/validation checks pass, while upstream stable-runner lookup remains blocked. Security findings and invariant evidence are in `V2_SECURITY_AUDIT.md` and `V2_PROTOCOL_INVARIANTS.md`. Stable runner/fees, native finality, real validator disagreement/rollback, Web Render egress and measured costs remain **BLOCKED**; Registry date semantics and appeal liveness/reviewer policy remain open. Stage 7A changes are uncommitted/unpushed.
+
+**Stage 6 preservation note (2026-10-13):** Stage 6 code and docs remain in the working tree. The Stage 7A request authorized staging only verified Stage 6 paths, but workspace access to `.git/index` failed with `Permission denied`. An escalation for the explicit Stage 6 path set was rejected by automatic review because `contracts/case_court.py` now contains the Stage 7 closure-consent fix and staging it could mix Stage 7 changes into the Stage 6 preservation set. No alternate staging path was attempted. Thus there is **no Stage 6 commit SHA and no push verification**; local `HEAD` remains `97b8a370953d37a843d63f791eec54f57f3eb628`. `manual-deployment/` and ignored artifacts were left untouched. Stage 6 implementation evidence and limitations remain in `V2_STAGE_6_REPORT.md` and focused docs.
 
 ### Stage 8 — Isolated local multi-contract integration
 

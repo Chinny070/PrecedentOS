@@ -200,6 +200,101 @@ export interface CaseCourtWebSourceComparison {
   comparison_commitment: string;
 }
 
+export type ContradictionClassification =
+  | 'MATERIAL_CONTRADICTION'
+  | 'DISTINGUISHED'
+  | 'NO_MATERIAL_CONTRADICTION'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'FURTHER_REVIEW_REQUIRED';
+
+export type ContradictionChallengeFilingStatus =
+  | 'FILED_FOR_AI_ASSESSMENT'
+  | 'DISTINGUISHED_SCOPE_ASSERTION'
+  | 'DISTINGUISHED_CRITERIA_VERSION';
+
+/** Caller excerpts are unverified inputs; an accepted assessment is not legal authority. */
+export interface CaseCourtContradictionChallenge {
+  challenge_id: string;
+  schema_version: string;
+  challenged_kind: 'JUDGMENT' | 'APPELLATE_RULING';
+  challenged_id: string;
+  challenged_case_id: string;
+  challenged_version: string;
+  challenged_commitment: string;
+  challenged_evidence_commitment: string;
+  challenged_criteria_version: string;
+  challenged_criteria_digest: string;
+  challenged_scope_assertion: string;
+  challenged_proposition: string;
+  challenged_excerpt_digest: string;
+  conflicting_kind: 'JUDGMENT' | 'APPELLATE_RULING';
+  conflicting_id: string;
+  conflicting_case_id: string;
+  conflicting_version: string;
+  conflicting_commitment: string;
+  conflicting_evidence_commitment: string;
+  conflicting_criteria_version: string;
+  conflicting_criteria_digest: string;
+  conflicting_scope_assertion: string;
+  conflicting_proposition: string;
+  conflicting_excerpt_digest: string;
+  grounds_code: 'CONFLICTING_OUTCOME' | 'MISAPPLIED_CRITERIA' | 'MATERIAL_FACT_CONFLICT';
+  grounds_digest: string;
+  challenger: `0x${string}`;
+  challenger_authority: 'NAMED_PARTY_OF_CHALLENGED_CASE';
+  challenge_commitment: string;
+  input_commitment: string;
+  status_at_filing: ContradictionChallengeFilingStatus;
+  evaluation_status: ContradictionClassification | ContradictionChallengeFilingStatus;
+  evaluation_commitment: string;
+  evaluation_provenance: string;
+  resolution_status: string;
+}
+
+export type AuthorityRelationType =
+  | 'CITES' | 'SUPPORTS' | 'DISTINGUISHES' | 'CONFLICTS_WITH' | 'CHALLENGES'
+  | 'UPHOLDS' | 'REVERSES' | 'SUPERSEDES' | 'REMANDS_TO';
+
+export type AuthorityProvenance =
+  | 'USER_ASSERTED_UNVERIFIED'
+  | 'AI_PROPOSED_NOT_AUTHORITATIVE'
+  | 'LOCAL_VALIDATED_CLIENT_ONLY'
+  | 'CASECOURT_APPELLATE_RECORD_REQUIRES_FINALITY_PROOF';
+
+/** Graph edges bind exact record versions and never rewrite either endpoint. */
+export interface CaseCourtAuthorityRelationship {
+  sequence: string;
+  edge_id: string;
+  schema_version: string;
+  source_kind: 'JUDGMENT' | 'APPELLATE_RULING';
+  source_id: string;
+  source_version: string;
+  source_commitment: string;
+  target_kind: 'JUDGMENT' | 'APPELLATE_RULING' | 'CASE';
+  target_id: string;
+  target_version: string;
+  target_commitment: string;
+  relation_type: AuthorityRelationType;
+  authority_source: 'USER_ASSERTED' | 'AI_PROPOSED' | 'APPELLATE_RECORD';
+  authority_status: AuthorityProvenance;
+  supporting_commitment: string;
+  challenge_id: string;
+  submitter: `0x${string}`;
+  edge_commitment: string;
+}
+
+export interface CaseCourtCurrentAuthority {
+  case_id: string;
+  case_version: string;
+  current_decision_id: string;
+  current_decision_kind: CaseCourtSnapshot['operative_decision_kind'];
+  current_decision_commitment: string;
+  authority_status: CaseCourtSnapshot['decision_authority'];
+  appeal_freeze: 'true' | 'false';
+  case_closed: 'true' | 'false';
+  finality_status: 'NOT_VERIFIED_BY_CASECOURT_VIEW';
+}
+
 export type CaseCourtAppealOutcome =
   | 'UPHELD'
   | 'REVERSED'

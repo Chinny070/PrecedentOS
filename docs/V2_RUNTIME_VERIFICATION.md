@@ -138,6 +138,40 @@ The verified documentation API pattern is not proof that this specific CaseCourt
 |---|---|---|
 | `gl.nondet.web.render(url, mode="text")` signature | **DOCUMENTATION-CONFIRMED** | Official FetchWebContent example and Web Access page; this confirms API documentation only. |
 | Production CaseCourt capture call | **IMPLEMENTED / BLOCKED** | `WEB_RENDER_RUNTIME_ENABLED = False` fails closed before renderer invocation. |
+
+## Stage 6 runtime and frontend status (2026-10-13)
+
+| Capability | Evidence | Status |
+|---|---|---|
+| CaseCourt contradiction challenge API | Bounded, exact-reference same-contract method and append-only record; Direct Mode tests cover authorization, commitments, caps, replay and rejection. | **IMPLEMENTED / LOCALLY TESTED** |
+| Contradiction AI/Equivalence Principle | Documented `gl.nondet.exec_prompt(..., response_format="json")` inside `run_nondet_unsafe`; validators compare classification and decision-bearing fields. Tests inject fake model outputs and mocked validators. | **IMPLEMENTED / LOCALLY TESTED (MOCKED)**; no real consensus |
+| Authority edge and supersession checks | Exact stored CaseCourt record binding, provenance classes, capacity bound, kind-aware traversal; fictional Direct Mode reversal flow tested. | **IMPLEMENTED / LOCALLY TESTED**; no node transaction |
+| Cross-contract Registry/Evaluator authority | No contract-to-contract reads or claimed verification are used by these features. | **BLOCKED / NOT IMPLEMENTED** |
+| Studio runtime probe | Separate diagnostic contract passes cached lint and Direct Mode tests; includes transaction context, optional AI EP, expected failure and forced-disagreement method. | **SOURCE READY / NOT DEPLOYED** |
+| Frontend Tribunal surface | Fictional fixtures and read-only provenance disclosures; no live contract adapter or authoritative local-storage inference. | **IMPLEMENTED / LOCALLY TESTED** |
+| Test artifact cleanup guard | Root pytest hook redirects GenLayer Test before cleanup; wrapper creates a unique external temp directory; six safety tests and full suite pass. | **IMPLEMENTED / LOCALLY TESTED** |
+| Stage 6 regression | `python scripts/run_tests_safe.py tests`: 217 passed, 2 opt-in integration tests skipped. | **LOCALLY TESTED** |
+| Cached GenVM lint | Registry, Evaluator, CaseCourt and probe pass 3 cached checks and validation. Upstream lookup failed Windows socket error 10013. | **CACHED LINT ONLY; stable runner BLOCKED** |
+| Live consensus, rollback, finality, fees | No service start, deployment, signature, write, or RPC request. | **NOT VERIFIED** |
+
+The Stage 6 sources use the documented storage, transaction-context, nondeterminism, Equivalence Principle and error APIs described in the linked official documentation above. This confirms the documented pattern; local lint and Direct Mode do not prove compatibility with the currently selected stable Studionet runner or any legal correctness. See `V2_STAGE_6_REPORT.md` and the focused Stage 6 documents.
+
+## Stage 7A security and diagnostic readiness (2026-10-13)
+
+| Capability | Evidence | Status |
+|---|---|---|
+| Closure request bound to current operative decision | Decision ID/digest/request version recorded; stale approval rejection and renewed closure covered by `test_stale_closure_request_cannot_close_a_reversed_decision`. | **FIXED / LOCALLY TESTED** |
+| Untrusted grounds in appeal/contradiction prompts | Compact JSON string encoding and hostile multiline tests. | **FIXED / LOCALLY TESTED**; model prompt injection is not eliminated. |
+| Freeze enforcement for Stage 6 overlays | Contradiction AI assessment and authority relationship check both linked cases for frozen/active appeal; shared adversarial test. | **FIXED / LOCALLY TESTED** |
+| Full Python regression | `python scripts/run_tests_safe.py tests`: **220 passed, 2 skipped**. Two opt-in skips are localnet identity and cross-contract integration. | **LOCALLY TESTED (Direct Mode, mocked AI/EP)** |
+| Focused Stage 7 regression | `python scripts/run_tests_safe.py tests/test_case_court_appeals.py tests/test_case_court_contradictions_authority.py`: **32 passed**. | **LOCALLY TESTED (Direct Mode)** |
+| GenVM lint/validation | Registry, Evaluator, CaseCourt, and standalone Studio probe passed cached checks; upstream runner lookup failed with `WinError 10013`. | **CACHED LINT ONLY; stable runner BLOCKED** |
+| Frontend verification | Lint, typecheck, Vitest (**56 passed**), production build. | **LOCALLY TESTED** |
+| Stable chain identity / runner / fee quote | No RPC response this stage; runner catalog fetch remains socket-blocked; no authoritative fee profile. | **BLOCKED / NOT LIVE VERIFIED** |
+| Probe browser deploy, transactions, rollback and finality | Probe source is `experiments/stage6/studio_runtime_probe.py`, class `StudioRuntimeProbe`, no constructor args. No deploy or transaction. | **PREPARED ONLY / NOT STARTED** |
+| Web Render SSRF, redirects, DNS and pre-return caps | No runtime egress proof; production gate remains `WEB_RENDER_RUNTIME_ENABLED = False`. | **BLOCKED / DISABLED** |
+
+Security detail is in `V2_SECURITY_AUDIT.md`; state guarantees and gaps are in `V2_PROTOCOL_INVARIANTS.md`; user-operated probe steps are in `V2_STUDIO_MANUAL_TEST_PLAN.md`. No contract deployment, transaction, wallet signature, Docker action, package installation, or Web Render activation occurred.
 | Output/claim and custom EP logic | **LOCALLY TESTED** | Direct Mode replaces renderer and model with fixtures; not runtime or consensus proof. |
 | Source identity, content/excerpt and verification commitments | **IMPLEMENTED / LOCALLY TESTED** | Shared Python/TS vectors; hashes establish byte binding only, not source truth. |
 | Redirects, DNS rebinding/private-network egress, renderer pre-read bounds/cost | **BLOCKED** | Not established by the inspected docs or available runtime. A post-render contract length check cannot cap renderer work before return. |
