@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "case_id": "FICT-CASE-0001",
+      "case_type": "Fictional permit dispute",
+      "policy_version": 1,
+      "opening_evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "case_id": "FICT-CASE-0002",
+      "case_type": "Fictional access dispute",
+      "policy_version": 1,
+      "opening_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}
