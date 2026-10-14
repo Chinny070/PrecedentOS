@@ -45,3 +45,16 @@ The least risky next runtime action is **not a production deployment**. First, r
 Only after the warning is understood should Registry be considered as the first production candidate. Evaluator requires an additional approved AI/Equivalence Principle run. CaseCourt remains gated even if the storage warning is resolved.
 
 **Stage 9 deployment readiness:** **NO-GO** for production deployment at this time; **CONDITIONAL GO** only for reviewing and, after separate explicit approval, running the new isolated diagnostic experiment.
+
+## Superseding Registry status — 2026-10-14
+
+The user has since supplied a finalized registration-call detail. This updates the Registry row and the earlier “next experiment” ordering above; it does not change Evaluator or CaseCourt gates.
+
+- **Reported address:** `0xd19FfF91FaB33932A70CB9e2927159a8F103945C` (the `To` address of the supplied call). Deployment transaction/hash and deployed-source verification have not been supplied.
+- **Reported functional call:** `0xc4775a389916cf1b5a13f233bfecbc9ddd7ed3f126b1e58ca98baa6c08de6497`, `register_precedent`, reported FINALIZED + Accepted + GenVM SUCCESS/Return. Full fictional arguments and evidence limits are recorded in [the deployment manifest](V2_DEPLOYMENT_MANIFEST.md).
+- **Current Registry verdict: CONDITIONAL GO for Registry-only verification.** No code-level blocker was found in the production Registry source; the supplied call is positive runtime evidence attributed to the user. Before marking the Registry live-verified, obtain the Studio network/chain display for this transaction and read back `get_precedent`, `has_precedent`, and `get_registration_count`, confirming the record fields and submitter. Then test duplicate rejection and unchanged state if the user approves its transaction cost.
+- The transaction detail reports `Value: 0 GEN`; this does not establish a zero network fee. No fee quote is in evidence.
+- The independent RPC/explorer retrieval remains unavailable, so the call result above is not independently verified. Do not claim source-bytecode equivalence from the method name and ABI arguments alone.
+- As instructed, the diagnostic storage warning is retained as a known compatibility risk and will not be investigated further unless production behavior reveals a concrete related issue. Registry contains no nondeterministic path; this does not prove the warning harmless for Evaluator or CaseCourt.
+
+Evaluator remains NO-GO for production labeling until its own positive AI/Equivalence transaction, negative/failure tests, and exact readback are supplied. CaseCourt remains NO-GO pending reviewer-governance, freeze-recovery, authorization and finality policy/runtime safeguards. Web Render remains disabled.

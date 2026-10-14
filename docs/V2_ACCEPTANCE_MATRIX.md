@@ -209,3 +209,14 @@ No requirement is **LIVE VERIFIED** by Stage 7B. `V2_STAGE_7B_REPORT.md` gives t
 5. For features intentionally client-only (counterfactuals, graph rendering), contract column must say “not applicable by design” rather than silently omitting the requirement; frontend/security/automated/live status still must be tracked.
 6. A live consensus result demonstrates protocol execution under its equivalence rule, not legal correctness.
 7. A locally valid case-decision schema/helper is not an authoritative decision. Only a runtime-verified immutable Court record plus the correct successful finalized transaction can support that label.
+
+## Stage 9 Registry call evidence overlay (2026-10-14)
+
+This addendum supersedes the earlier statement that no Registry production call evidence had been supplied. It does not upgrade Registry to complete live verification because chain identity and post-call state readback were not included in the supplied transaction excerpt.
+
+| Capability | Evidence | Status |
+|---|---|---|
+| Registry address called | User-provided Explorer page reports `To: 0xd19FfF91FaB33932A70CB9e2927159a8F103945C`; deployment transaction and source verification not supplied. | **USER-REPORTED ADDRESS; deployment provenance pending** |
+| Fictional precedent registration | User-provided transaction `0xc4775a389916cf1b5a13f233bfecbc9ddd7ed3f126b1e58ca98baa6c08de6497`: FINALIZED, Accepted, GenVM SUCCESS/Return; exact call arguments in `V2_DEPLOYMENT_MANIFEST.md`. | **RUNTIME EVIDENCE REPORTED BY USER; not independently retrieved** |
+| Registry persistence, keyed read, submitter and count | No post-transaction view readback supplied. | **BLOCKED / PENDING READBACK** |
+| Stable Studionet identity for this call | Target project network is chain 61999, but the supplied transaction excerpt omits chain ID/network label. | **PENDING TRANSACTION-NETWORK CONFIRMATION** |
