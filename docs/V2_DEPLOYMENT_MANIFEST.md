@@ -91,7 +91,15 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 - Method and inputs match `evaluate_pair` for `EVAL-STUDIONET-MATCH-001` recorded above.
 - Explorer-rendered Equivalence output reports `classification=material_similarity`, `same_material_issue=true`, `evidence_sufficient=true`, `outcomes_differ=false`, `material_similarity=true`, `potential_contradiction=false`, empty differences/contradictions, and four similarity findings. This is a user-reported accepted positive AI/Equivalence result, not a legal correctness claim.
 - User-supplied `get_evaluation("EVAL-STUDIONET-MATCH-001")` readback returns the matching evaluation ID, `material_similarity`, `evidence_sufficient=true`, the expected decision fields, schema and criteria versions `1`, both submitted record IDs/digests, and input commitment `b32b5d2e0e9089a4685c0e30bce0b75779583b4f19d83a9967d5797f6ca37635`. This confirms persisted record content as reported by the user; the readback is not independently retrieved, and chain identity for this call remains unshown.
-- `has_evaluation(...)` and `get_evaluation_count()` have not yet been supplied for this deployed instance.
+- User-supplied readbacks: `has_evaluation("EVAL-STUDIONET-MATCH-001")` → `true`; `get_evaluation_count()` → `1`.
+
+### Controlled rejected digest test — user-supplied
+
+- Transaction: `0xd1d6205c107680e57fe18afafe22b98bf35594cb690a0a295c0d443ed51d465c`
+- Method: `evaluate_pair`; evaluation ID `EVAL-STUDIONET-REJECT-001`; fictional insufficient-information passages; first digest deliberately set to 64 zeroes.
+- Reported transaction metadata: **FINALIZED; consensus Accepted; GenVM ERROR; result Rollback**. Error: `first evidence digest does not match submitted passage`.
+- Post-call user-supplied readbacks: `has_evaluation("EVAL-STUDIONET-REJECT-001")` → `false`; `get_evaluation_count()` → `1`, unchanged from before the call.
+- Result: **deterministic input-validation rejection and unchanged state reported by user**. It is not a successful evaluation, does not exercise validator disagreement, and is not an independently retrieved receipt. The transaction's `0 GEN` value is not a fee measurement.
 
 ### Next positive Evaluator test — matching fictional precedents
 
