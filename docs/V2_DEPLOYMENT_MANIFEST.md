@@ -75,7 +75,29 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 - Deployment transaction shown in abbreviated form only: `0x028b4d3a...2f1f8a96`; full hash not supplied
 - Screenshot reports deployment method `constructor`, GenVM `SUCCESS`, consensus `Accepted`; the later finality update is user-reported without a new screenshot. The screenshot does not show the chain ID.
 - Source/bytecode equivalence to `contracts/precedent_evaluator.py`: **not independently verified**
-- First positive AI/Equivalence attempt ended Undetermined; user-reported state readback confirms no record persisted. Required next proof: deploy the hardened source separately; then obtain an accepted/finalized successful evaluation plus exact persisted readback and negative tests. Do not treat caller-supplied precedent IDs as verified Registry references.
+- First positive AI/Equivalence attempt ended Undetermined; user-reported state readback confirms no record persisted. A new deployment of the hardened source is now reported below. Do not treat caller-supplied precedent IDs as verified Registry references.
+
+### Hardened Evaluator deployment
+
+- Address shown: `0x5DEeD1A620e9ecd70b1A4e6f0F130CF9D272666`
+- User-provided Studio Explorer screenshot: constructor deployment **FINALIZED**, consensus **Accepted**, GenVM **SUCCESS**; transaction hash shown abbreviated as `0x69e2775a...a72d42d3`.
+- Screenshot does not show the chain ID or source/bytecode. The user was asked to deploy the hardened source, but deployed source equivalence remains **unverified**.
+
+### Next positive Evaluator test — matching fictional precedents
+
+Use the fixture `matching` from `tests/fixtures/fictional_evaluations.json` on the hardened deployment. This avoids the ambiguous conflict case that produced Undetermined. It remains a cost-bearing AI call; check the Studio fee before submitting.
+
+- `evaluation_id`: `EVAL-STUDIONET-MATCH-001`
+- `record_a_id`: `FICT-NOISE-0001`
+- `record_a_digest`: `1acaca2198b27b5e4512535b6b931448d1138a820c031b781d093537b621599e`
+- `record_b_id`: `FICT-NOISE-0002`
+- `record_b_digest`: `6049593e171a2a0b4e618cd23c154a6ae988e48513276e4964bef0cb80c89888`
+- `evidence_packet_json`: `{"precedent_a":"A fictional panel found that a shop violated a quiet-hours rule by playing amplified music after 22:00. No exception applied.","precedent_b":"A fictional panel found a shop breached the same quiet-hours rule by playing amplified music after 22:00. The record states that no exception applied."}`
+- `evidence_schema_version`: `1`
+- `criteria_version`: `1`
+- `criteria`: `Compare the stated issue, rule, material facts, outcomes, and any expressly stated exception. Treat a difference as a possible contradiction only if it remains unexplained by the supplied facts. Use no outside assumptions.`
+- Expected classification to inspect: `material_similarity`. This is a test expectation, not a promised model response or consensus result.
+- After execution, count success only with FINALIZED + Accepted + GenVM SUCCESS/Return, then verify `get_evaluation`, `has_evaluation`, and count. These IDs are synthetic caller-supplied references, not authenticated Registry entries.
 
 ## CaseCourt
 

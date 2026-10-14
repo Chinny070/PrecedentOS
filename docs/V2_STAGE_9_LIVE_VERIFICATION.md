@@ -138,3 +138,7 @@ The user supplied details for call `0x050d94e373687dc22a26e08d2c3f3561d37dd1dbba
 The Explorer-rendered Equivalence output reports a possible contradiction, same material issue, differing outcomes and a nonempty contradiction finding, but also `material_similarity=false`; its reasoning says the material facts are identical. This appears internally inconsistent for the supplied passages. It does not by itself establish why validators did not reach consensus. The live deployment source is not bytecode-verified.
 
 In response, local `contracts/precedent_evaluator.py` now rejects a potential-contradiction result unless `material_similarity` is true. A regression test confirms rejection and no persistence in Direct Mode. This local fix does not alter the already-deployed address and requires a new deployment for runtime verification. The user then reported `has_evaluation(...) == false` and `get_evaluation_count() == 0`, confirming this attempted ID was not persisted; `get_evaluation(...)` was not separately queried.
+
+### Hardened Evaluator redeployment — user-supplied screenshot
+
+The user supplied a second deployment screenshot showing address `0x5DEeD1A620e9ecd70b1A4e6f0F130CF9D272666`, status **FINALIZED**, consensus **Accepted**, and GenVM **SUCCESS**. The transaction hash is abbreviated (`0x69e2775a...a72d42d3`), and neither chain ID nor source/bytecode appears in the screenshot. This is deployment evidence only; no AI call against this address has yet been reported.
