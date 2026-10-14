@@ -226,4 +226,4 @@ This addendum supersedes earlier statements that no Registry production call or 
 | Capability | Evidence | Status |
 |---|---|---|
 | Evaluator deployment | User-provided Studio Explorer screenshot shows address `0x6c1571C445D12ECeD90CAddE677bD0ee9694487D`; screenshot showed Accepted consensus and GenVM SUCCESS; user subsequently reports the deployment is FINALIZED. Hash remains abbreviated. | **FINALITY REPORTED BY USER; full hash/chain identity pending** |
-| Evaluator AI/Equivalence behavior | User-provided transaction `0x050d94e373687dc22a26e08d2c3f3561d37dd1dbba61d0b640913c6e57f940a7` finalized with consensus Undetermined; leader GenVM returned successfully. No accepted result/readback. | **RUNTIME ATTEMPT; NOT ACCEPTED; READBACK PENDING** |
+| Evaluator AI/Equivalence behavior | User-provided transaction `0x050d94e373687dc22a26e08d2c3f3561d37dd1dbba61d0b640913c6e57f940a7` finalized Undetermined; user readback: `has_evaluation=false`, count `0`. | **RUNTIME ATTEMPT; NOT ACCEPTED; NO STATE PERSISTED (user-reported)** |
