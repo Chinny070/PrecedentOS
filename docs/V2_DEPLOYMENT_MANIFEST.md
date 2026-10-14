@@ -53,7 +53,7 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 - Other reported view results: `has_precedent(...)` → `true`; `get_registration_count()` → `1`.
 - Registry smoke-test result: **PASS for the one reported registration/readback on the Studio environment the user confirmed as Studionet 61999.** Evidence remains user-provided; the independent Explorer/RPC retrieval attempt was inaccessible. Deployment transaction/hash, bytecode/source verification, and fee remain unprovided. Duplicate rejection and unchanged state after rejection are not tested live.
 
-## Next planned PrecedentEvaluator test (not yet deployed or executed)
+## Next planned PrecedentEvaluator test (deployed; evaluation not yet executed)
 
 - Production source to upload: `contracts/precedent_evaluator.py`; zero-argument constructor.
 - First positive fictional test: `evaluate_pair` using evaluation ID `EVAL-STUDIONET-PERMIT-001`, record IDs `FICT-PERMIT-0001` and `FICT-PERMIT-0002`, evidence schema `1`, criteria version `1`, and the `unexplained_conflict` passages in `tests/fixtures/fictional_evaluations.json`.
@@ -66,10 +66,10 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 
 ## PrecedentEvaluator
 
-- Status: **deployment shown in user-provided Studio Explorer screenshot; transaction row currently says `ACCEPTED`, so finality is pending**
+- Status: **deployment shown in a user-provided Studio Explorer screenshot; screenshot first showed `ACCEPTED`, and the user subsequently reports it is now `FINALIZED`**
 - Address shown: `0x6c1571C445D12ECeD90CAddE677bD0ee9694487D`
 - Deployment transaction shown in abbreviated form only: `0x028b4d3a...2f1f8a96`; full hash not supplied
-- Screenshot reports deployment method `constructor`, GenVM `SUCCESS`, consensus `Accepted`; it does not show a `FINALIZED` status or the chain ID.
+- Screenshot reports deployment method `constructor`, GenVM `SUCCESS`, consensus `Accepted`; the later finality update is user-reported without a new screenshot. The screenshot does not show the chain ID.
 - Source/bytecode equivalence to `contracts/precedent_evaluator.py`: **not independently verified**
 - Required next proof: one fictional positive AI/Equivalence evaluation; negative classification/insufficient-evidence or malformed input behavior; finalized + accepted + successful execution; and exact persisted readback. Do not treat caller-supplied precedent IDs as verified Registry references.
 
