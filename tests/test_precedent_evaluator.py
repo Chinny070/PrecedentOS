@@ -252,6 +252,23 @@ def test_inconsistent_model_decision_fails_without_persisting(direct_vm, direct_
     assert contract.get_evaluation_count() == 0
 
 
+def test_possible_contradiction_requires_material_similarity_and_preserves_state(
+    direct_vm, direct_deploy
+):
+    contract = deploy(direct_deploy)
+    inconsistent = {
+        **answer_for_case("unexplained_conflict"),
+        "material_similarity": False,
+    }
+    mock_result(direct_vm, inconsistent)
+
+    with direct_vm.expect_revert("inconsistent model decision fields"):
+        contract.evaluate_pair(*arguments("unexplained_conflict"))
+
+    assert contract.has_evaluation("EVAL-UNEXPLAINED-CONFLICT") is False
+    assert contract.get_evaluation_count() == 0
+
+
 def test_non_json_model_response_fails_without_persisting(direct_vm, direct_deploy):
     contract = deploy(direct_deploy)
     direct_vm.clear_mocks()

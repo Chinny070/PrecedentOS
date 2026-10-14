@@ -139,6 +139,7 @@ def _pure_consistent_decision(result: dict[str, object]) -> bool:
         return (
             classification == "possible_contradiction"
             and result["same_material_issue"]
+            and result["material_similarity"]
             and result["outcomes_differ"]
             and len(result["contradictions"]) > 0
         )

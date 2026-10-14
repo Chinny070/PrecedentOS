@@ -130,3 +130,11 @@ This is a **user-reported Registry functional smoke-test pass** for one accepted
 ## Evaluator deployment screenshot addendum — user-supplied
 
 A user-provided Studio Explorer screenshot shows a contract at `0x6c1571C445D12ECeD90CAddE677bD0ee9694487D`, with one deployment transaction. The transaction row shows deployment/constructor, GenVM **SUCCESS**, consensus **Accepted**, and status **ACCEPTED**. The displayed transaction hash is truncated to `0x028b4d3a...2f1f8a96`. The screenshot does not show the selected chain ID, full hash, or deployed source/bytecode. The user subsequently reports that the status is now **FINALIZED**; no updated screenshot or full hash was supplied for that change. No Evaluator method call or AI/Equivalence result is claimed yet.
+
+### Evaluator transaction attempt — user-supplied
+
+The user supplied details for call `0x050d94e373687dc22a26e08d2c3f3561d37dd1dbba61d0b640913c6e57f940a7` to `0x6c1571C445D12ECeD90CAddE677bD0ee9694487D`. It reports **FINALIZED**, consensus **Undetermined**, rotation count `3`, initial validators `5`, and GenVM **SUCCESS/Return** with `null`. The arguments match the planned fictional `evaluate_pair` test in the manifest. This is not a successful accepted evaluation; no per-validator votes or post-call readback were supplied.
+
+The Explorer-rendered Equivalence output reports a possible contradiction, same material issue, differing outcomes and a nonempty contradiction finding, but also `material_similarity=false`; its reasoning says the material facts are identical. This appears internally inconsistent for the supplied passages. It does not by itself establish why validators did not reach consensus. The live deployment source is not bytecode-verified.
+
+In response, local `contracts/precedent_evaluator.py` now rejects a potential-contradiction result unless `material_similarity` is true. A regression test confirms rejection and no persistence in Direct Mode. This local fix does not alter the already-deployed address and requires a new deployment for runtime verification. Read back `has_evaluation`, `get_evaluation`, and count for the attempted ID before any retry; do not assume state rollback from Undetermined alone.

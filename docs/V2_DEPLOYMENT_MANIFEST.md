@@ -53,16 +53,20 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 - Other reported view results: `has_precedent(...)` → `true`; `get_registration_count()` → `1`.
 - Registry smoke-test result: **PASS for the one reported registration/readback on the Studio environment the user confirmed as Studionet 61999.** Evidence remains user-provided; the independent Explorer/RPC retrieval attempt was inaccessible. Deployment transaction/hash, bytecode/source verification, and fee remain unprovided. Duplicate rejection and unchanged state after rejection are not tested live.
 
-## Next planned PrecedentEvaluator test (deployed; evaluation not yet executed)
+## PrecedentEvaluator first evaluation attempt
 
 - Production source to upload: `contracts/precedent_evaluator.py`; zero-argument constructor.
 - First positive fictional test: `evaluate_pair` using evaluation ID `EVAL-STUDIONET-PERMIT-001`, record IDs `FICT-PERMIT-0001` and `FICT-PERMIT-0002`, evidence schema `1`, criteria version `1`, and the `unexplained_conflict` passages in `tests/fixtures/fictional_evaluations.json`.
 - Exact passage SHA-256 digests (UTF-8): record A `d6e71d65d4bf32f69098c1274535e5d70ddc2ac10a1e214f4ec5ac7838483176`; record B `aef80225c38056e34445afb6f2505bcb3f23c8110aa34181b29c73db107e8079`.
 - Evidence packet JSON string: `{"precedent_a":"A fictional panel held that a permit allowed a temporary sign on a public walkway and that this placement complied with the stated walkway rule. No exception or different fact was identified.","precedent_b":"A fictional panel held that a permit allowed a temporary sign on the same type of public walkway and that this placement violated the same stated walkway rule. No exception or different fact was identified."}`
 - Criteria: `Compare the stated issue, rule, material facts, outcomes, and any expressly stated exception. Treat a difference as a possible contradiction only if it remains unexplained by the supplied facts. Use no outside assumptions.`
-- Expected assessment to inspect: `possible_contradiction` with the decision fields semantically consistent and nonempty contradiction findings. The contract's Equivalence Principle must accept matching decision-bearing fields; a leader result, valid JSON, or finalized status alone is insufficient.
-- Evaluator IDs/digests are caller-supplied and are **not** proof of Registry membership; cross-contract verification is not implemented or claimed. Await the user-operated deployment and any fee approval before submitting this AI transaction.
-- After an accepted successful finalized execution, read back `get_evaluation("EVAL-STUDIONET-PERMIT-001")`, `has_evaluation(...)`, and `get_evaluation_count()`. Then use separate fictional negative checks (e.g. insufficient evidence, mismatched digest, and duplicate evaluation ID) only after reviewing each displayed fee.
+- Reported transaction: `0x050d94e373687dc22a26e08d2c3f3561d37dd1dbba61d0b640913c6e57f940a7`.
+- User-provided result: **FINALIZED; consensus Undetermined; rotation count 3; initial validators 5; GenVM SUCCESS/Return; return value `null`**. This is **not an accepted or successful evaluation**. The leader execution output does not prove Equivalence Principle acceptance.
+- The Explorer-rendered Equivalence output includes `classification=possible_contradiction`, `same_material_issue=true`, `outcomes_differ=true`, `potential_contradiction=true`, but `material_similarity=false`, with nonempty contradictions. The output also includes reasoning that describes the facts as identical. This field combination is suspiciously inconsistent for this evidence; individual validator votes were not supplied, so it does not establish the reason consensus was Undetermined.
+- Required immediate state check: `has_evaluation("EVAL-STUDIONET-PERMIT-001")`, `get_evaluation(...)`, and `get_evaluation_count()`. Expected safe outcome after an undetermined call is absent record/false/count zero, but verify rather than assume.
+- **Source hardening made after this result:** the local validator now requires `material_similarity=true` when `potential_contradiction=true`, and a Direct Mode regression proves the inconsistent leader result reverts before persistence. This is not the bytecode at the already-deployed address; any runtime test of the hardened source requires a separate deployment and address.
+- Evaluator IDs/digests are caller-supplied and are **not** proof of Registry membership; cross-contract verification is not implemented or claimed. Do not repeat this AI transaction on the existing deployment until its state is read back; any runtime check of the hardened source requires a new user-operated deployment and separate review of the displayed fee.
+- After a future accepted successful finalized execution on a deployment of the hardened source, read back `get_evaluation(...)`, `has_evaluation(...)`, and `get_evaluation_count()`. Then use separate fictional negative checks (e.g. insufficient evidence, mismatched digest, and duplicate evaluation ID) only after reviewing each displayed fee.
 
 ## PrecedentEvaluator
 
@@ -71,7 +75,7 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 - Deployment transaction shown in abbreviated form only: `0x028b4d3a...2f1f8a96`; full hash not supplied
 - Screenshot reports deployment method `constructor`, GenVM `SUCCESS`, consensus `Accepted`; the later finality update is user-reported without a new screenshot. The screenshot does not show the chain ID.
 - Source/bytecode equivalence to `contracts/precedent_evaluator.py`: **not independently verified**
-- Required next proof: one fictional positive AI/Equivalence evaluation; negative classification/insufficient-evidence or malformed input behavior; finalized + accepted + successful execution; and exact persisted readback. Do not treat caller-supplied precedent IDs as verified Registry references.
+- First positive AI/Equivalence attempt ended Undetermined as recorded above. Required next proof: verify no record persisted; deploy the hardened source separately; then obtain an accepted/finalized successful evaluation plus exact persisted readback and negative tests. Do not treat caller-supplied precedent IDs as verified Registry references.
 
 ## CaseCourt
 
