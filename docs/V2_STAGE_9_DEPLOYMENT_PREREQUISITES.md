@@ -82,4 +82,6 @@ At the time of the preceding update, CaseCourt remained undeployed. The readines
 
 ### CaseCourt Studio call correction — 2026-10-14
 
-The user subsequently reported a CaseCourt deployment at `0xf1Ab9107180F0b467D03c72eeC8e3bA62757795b` and an `open_case` attempt that failed at the `Address` argument boundary; the post-failure case count was `0`. The corrected source accepts a validated `0x` address string. Do not repeat the write against the existing deployment. A fresh user deployment of the corrected source is required before restarting Phase A. See `V2_CASECOURT_READINESS.md` and `V2_DEPLOYMENT_MANIFEST.md`.
+The user subsequently reported an initial CaseCourt deployment at `0xf1Ab9107180F0b467D03c72eeC8e3bA62757795b` and an `open_case` attempt that failed at the `Address` argument boundary; the post-failure count was `0`. The corrected source accepts a validated `0x` address string and has since been freshly deployed, per user report, at `0x3cD927B446265Bf2337A520a508fE963A3da9b72`. The user reports Phase A create/evidence/lock and stale-version rollback/readback passed. See `V2_CASECOURT_READINESS.md` and `V2_DEPLOYMENT_MANIFEST.md` for details and evidence limits.
+
+Next: a single fictional AI judgment is conditional on the user reviewing and separately approving the Studio-displayed fee. Do not start the appeal lifecycle until reviewer selection/conflicts and a fair freeze-recovery policy are approved and implemented. No AI or appeal transaction has yet been reported for CaseCourt.

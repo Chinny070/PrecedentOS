@@ -8,12 +8,12 @@
 
 ## Decision
 
-- **GO, with user-controlled deployment and cost review, for a bounded fictional Phase A deterministic Studio smoke test only.** It covers deployment, case creation, evidence commitment, lock/readback, and a deterministic stale-version rejection. It does not test AI, appeals, or legal authority.
+- **Phase A is now reported complete by the user** on a fresh CaseCourt deployment: case creation, evidence append/readback, evidence lock/root readback, and stale-version rejection with unchanged state. Detailed transaction IDs and observations are recorded below. This is user-supplied evidence, not an independently retrieved receipt or source match.
 - **CONDITIONAL GO for one fictional AI judgment only after a separate user approval of the displayed fee and the test arguments.** The judgment is an AI-assisted protocol assessment, not legal advice or a legally authoritative judgment.
 - **NO-GO for appeal/reviewer lifecycle testing and production governance.** The current reviewer is the opposing case party, not an independent reviewer, and an active appeal can leave the case frozen indefinitely. Do not file an appeal in Studio until reviewer selection and freeze-recovery policy are approved and implemented.
-- **No deployment, signature, wallet action, transaction, or Web Render retrieval occurred in this review.**
+- **Codex did not deploy, request signatures, submit transactions, or invoke Web Render.** The user performed the Studio deployment and Phase A calls described below.
 
-This is a readiness review of source and local tests; the deployed Registry/Evaluator and Studio outcomes remain user-reported evidence. There is no CaseCourt address or runtime transaction evidence.
+This remains a source/local-test review plus user-reported Studio evidence. The current CaseCourt address is recorded in the deployment manifest; transaction retrieval and exact deployed source identity are not independently verified.
 
 ## Contract inventory
 
@@ -107,12 +107,25 @@ Do not submit until the user separately approves the displayed AI transaction fe
 
 ## Next approval needed
 
-Before implementing or enabling appellate governance, choose the reviewer model and the stuck-appeal deadline/recovery policy. Until then, only the fictional deterministic Phase A smoke test is proposed; keep governance writes disabled and Web Render disabled. CaseCourt production/legal readiness remains **NO-GO**.
+Phase A is reported complete. Before Phase B, the user must review and separately approve the AI transaction fee shown in Studio. Before implementing or enabling appellate governance, choose the reviewer model and stuck-appeal deadline/recovery policy. Keep appeal governance writes and Web Render disabled until their respective gates are resolved. CaseCourt production/legal readiness remains **NO-GO**.
 
 ## Studio `open_case` interface correction — 2026-10-14
 
 The user supplied a Studio transaction for `open_case` to the reported CaseCourt address `0xf1Ab9107180F0b467D03c72eeC8e3bA62757795b`. Explorer reported FINALIZED and Accepted consensus, but GenVM returned **ERROR / Contract Error** with `AttributeError: 'int' object has no attribute 'as_hex'`. Argument 3 was entered in Studio as the correct respondent wallet address `0x1Af111b06E6f6A05Bd41572A016318f1356aF85c`; the transaction's decoded representation showed its integer value, and the subsequent user read of `get_case_count()` returned `0`. This is user-supplied evidence, not independently retrieved receipt data. It proves the call did not create the case on that deployment.
 
-The cause is the public signature `respondent: Address`: the Studio call path delivered the address as an integer, while the contract immediately accessed `.as_hex`. The source now accepts a bounded 42-character `0x` hex string, rejects malformed/non-string values before mutation, converts it with `Address(respondent)`, then applies the existing zero/self checks and persists the normalized address. This follows the official [GenLayer Address Type documentation](https://docs.genlayer.com/developers/intelligent-contracts/types/address), which recommends string parameters and conversion at the contract boundary. The already deployed contract cannot be changed by editing source; the corrected source requires a fresh deployment at a new address before repeating Phase A. Do not retry the write against the old deployment.
+The cause was the public signature `respondent: Address`: the Studio call path delivered the address as an integer, while the contract immediately accessed `.as_hex`. The source now accepts a bounded 42-character `0x` hex string, rejects malformed/non-string values before mutation, converts it with `Address(respondent)`, then applies the existing zero/self checks and persists the normalized address. This follows the official [GenLayer Address Type documentation](https://docs.genlayer.com/developers/intelligent-contracts/types/address), which recommends string parameters and conversion at the contract boundary. The old deployed contract could not be changed by editing source; the corrected source was deployed at a fresh address before repeating Phase A. Do not retry the write against the old deployment.
 
 Corrected source SHA-256: `d7270713e53108be58b1c6795ba492bdfb1f8d1bf0246b8df26b2efae51f60e9`. Cached GenVM lint/schema passes (50 methods, 22 views, 28 writes, no constructor parameters); stable runner compatibility remains unverified. New Direct Mode tests cover valid address-string registration and rejection of integer, malformed-length, and non-hex values without state changes. The post-fix full suite is 247 passed, 4 skipped, 1 unrelated Direct Mode harness failure; focused open-case tests are 16 passed, 28 deselected. The three production contracts were not tested on an actual runtime by these commands.
+
+### Corrected deployment and Phase A outcome — user-reported
+
+The user subsequently deployed the corrected source at `0x3cD927B446265Bf2337A520a508fE963A3da9b72`. The deployment screenshot reports FINALIZED, Accepted, and GenVM SUCCESS; its transaction hash is abbreviated, chain ID is not visible, and source identity was not independently matched. The user identifies the target network as stable Studionet `61999`.
+
+The user then supplied:
+
+- `open_case` transaction `0x9357befb5fb64048a8a8b192af6dcd6b9d994a45c5bda2088503155813ec54fd`: FINALIZED, Accepted, GenVM SUCCESS/Return. Readback showed case `FICT-CASE-STUDIO-001`, petitioner `0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b`, respondent `0x1Af111b06E6f6A05Bd41572A016318f1356aF85c`, phase `EVIDENCE_OPEN`, version 1, and the expected opening digest.
+- `append_evidence` transaction `0x56c434e6348c6d87eda5e08adaf5336a06828c8b001e6dc8c7a7dbfbc1f9e80c`: FINALIZED, Accepted, GenVM SUCCESS/Return. `get_evidence` matched digest, schema version, source-reference digest, submitter, and case version 2.
+- `lock_evidence` transaction `0x0b32f9e5e03ebaa9ece0d55fe86abc60cb08c6d3deff98c03b34e94baf05c1f8`: FINALIZED, Accepted, GenVM SUCCESS/Return. `get_case` showed `EVIDENCE_LOCKED`, version 3, evidence count 1, action count 3, and evidence root `49b9695a4f295ab25580193c029231e73a9245144d456011188db4c23517be05`.
+- Stale `lock_evidence` transaction `0xe4b2792a1a619ab9bd79d63dd68814c46c5529d8d5fc42f7686f36ede076c3bf`: FINALIZED and Accepted consensus, but GenVM ERROR/Rollback with `stale case version`. The subsequent readback remained at version 3, action count 3, and the same evidence root.
+
+These are user-provided Explorer and Studio readbacks, not independently fetched receipts. Transaction `Value: 0 GEN` is not a network fee measurement. Phase A is **USER-REPORTED PASS**; AI judgment, appeals, and deployed-source equivalence remain unverified.

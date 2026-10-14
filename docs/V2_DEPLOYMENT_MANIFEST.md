@@ -119,12 +119,15 @@ This was submitted on the hardened deployment to avoid the ambiguous conflict ca
 
 ## CaseCourt
 
-- Status: **no deployment reported; conditional GO only for a user-controlled fictional deterministic Phase A smoke test; NO-GO for production governance and appeals**
+- Status: **user-reported deployment and fictional deterministic Phase A smoke passed on a fresh deployment; conditional GO for the separately approved AI judgment; NO-GO for production governance and appeals**
 - Exact source: `contracts/case_court.py`
-- Source SHA-256 at review: `e9f4d73fe243eabd1e18decf2c16abbfa742ee692f04933ca578bf28d4f395de`
+- Corrected source SHA-256: `d7270713e53108be58b1c6795ba492bdfb1f8d1bf0246b8df26b2efae51f60e9`
 - Constructor arguments: **none**. Cached schema validation reports 50 public methods (28 writes, 22 views); the runner/header and cached-lint limitation are documented in `V2_CASECOURT_READINESS.md`.
-- Network target: stable Studionet `61999`; no CaseCourt address, deployment transaction, fee quote, or runtime result has been supplied.
-- First proposed functional write is fictional `open_case`; exact arguments and subsequent evidence-lock/stale-version readbacks are in `V2_CASECOURT_READINESS.md`. Do not submit the AI judgment without separate fee approval.
+- User-reported address: `0x3cD927B446265Bf2337A520a508fE963A3da9b72`. Deployment screenshot shows FINALIZED, Accepted, GenVM SUCCESS; deployment hash is abbreviated (`0xab4413e6...6979b20d`). The user identifies the target as stable Studionet `61999`; these screenshots do not themselves show chain ID or prove the uploaded source hash.
+- Phase A: user reports `get_case_count()` initially returned `0`; `open_case` transaction `0x9357befb5fb64048a8a8b192af6dcd6b9d994a45c5bda2088503155813ec54fd` was FINALIZED + Accepted + GenVM SUCCESS/Return; `get_case` returned the expected parties, case ID, opening digest, `EVIDENCE_OPEN`, version 1, and zero evidence. `append_evidence` transaction `0x56c434e6348c6d87eda5e08adaf5336a06828c8b001e6dc8c7a7dbfbc1f9e80c` was FINALIZED + Accepted + GenVM SUCCESS/Return; `get_evidence` matched digest/schema/source digest/submitter at case version 2. `lock_evidence` transaction `0x0b32f9e5e03ebaa9ece0d55fe86abc60cb08c6d3deff98c03b34e94baf05c1f8` was FINALIZED + Accepted + GenVM SUCCESS/Return; readback showed `EVIDENCE_LOCKED`, version 3, evidence count 1, and root `49b9695a4f295ab25580193c029231e73a9245144d456011188db4c23517be05`.
+- Phase A rejection: stale `lock_evidence` transaction `0xe4b2792a1a619ab9bd79d63dd68814c46c5529d8d5fc42f7686f36ede076c3bf` was FINALIZED + Accepted consensus but GenVM ERROR/Rollback with `stale case version`; subsequent user readback remained version 3, action count 3, and the same evidence root. This is a failed execution with reported unchanged state, not a successful call.
+- Evidence provenance: all deployment/call/readback outcomes above are user-supplied Studio/Explorer observations, not independently retrieved. `Value: 0 GEN` does not establish zero fees; no fee quote is recorded.
+- The next proposed operation is the fictional AI judgment in `V2_CASECOURT_READINESS.md`, only after the user reviews and separately approves the fee shown in Studio.
 - Required test signers: two controlled, distinct wallet addresses (petitioner and respondent); never share keys or seed phrases. A second identity does not establish legal identity or independent reviewer qualifications.
 - Production governance blocker: appeal review is performed by the opposing case party, not an independent reviewer. There is no approved reviewer-selection/conflict policy, and appeal freezes can persist indefinitely after failure/disagreement/unavailability. Do not execute Phase C pending policy approval.
 - `WEB_RENDER_RUNTIME_ENABLED` remains false.
