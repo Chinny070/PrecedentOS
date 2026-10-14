@@ -79,9 +79,18 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 
 ### Hardened Evaluator deployment
 
-- Address shown: `0x5DEeD1A620e9ecd70b1A4e6f0F130CF9D272666`
-- User-provided Studio Explorer screenshot: constructor deployment **FINALIZED**, consensus **Accepted**, GenVM **SUCCESS**; transaction hash shown abbreviated as `0x69e2775a...a72d42d3`.
+- Address shown: `0x5DEeD1A620e9ecd70b1Ae4e6f0F130CF9D272666` (canonical address transcribed from the successful call's full `To` field; this corrects the earlier screenshot transcription)
+- User-provided Studio Explorer screenshot: constructor deployment **FINALIZED**, consensus **Accepted**, GenVM **SUCCESS**; transaction hash shown abbreviated as `0x69e2775a...a72d42d3`. Its address text was transcribed one character short earlier; the full call `To` address above is used here.
 - Screenshot does not show the chain ID or source/bytecode. The user was asked to deploy the hardened source, but deployed source equivalence remains **unverified**.
+
+### Matching-case AI evaluation — user-supplied transaction
+
+- Transaction: `0x8f7a58bf3de0cbb9c6a1578eae9dcf7967825b50babd02dd00d930e2e4941631`
+- `To`: `0x5DEeD1A620e9ecd70b1Ae4e6f0F130CF9D272666`; `From`: `0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b`
+- Reported result: **FINALIZED; consensus Accepted; GenVM SUCCESS/Return; rotation count 0; initial validators 5; return `null`**.
+- Method and inputs match `evaluate_pair` for `EVAL-STUDIONET-MATCH-001` recorded above.
+- Explorer-rendered Equivalence output reports `classification=material_similarity`, `same_material_issue=true`, `evidence_sufficient=true`, `outcomes_differ=false`, `material_similarity=true`, `potential_contradiction=false`, empty differences/contradictions, and four similarity findings. This is a user-reported accepted positive AI/Equivalence result, not a legal correctness claim.
+- Required readback: `get_evaluation("EVAL-STUDIONET-MATCH-001")`, `has_evaluation(...)`, and `get_evaluation_count()`. Do not mark persisted evaluation verified until the returned fields and commitment match the request.
 
 ### Next positive Evaluator test — matching fictional precedents
 

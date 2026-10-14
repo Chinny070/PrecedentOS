@@ -141,4 +141,10 @@ In response, local `contracts/precedent_evaluator.py` now rejects a potential-co
 
 ### Hardened Evaluator redeployment — user-supplied screenshot
 
-The user supplied a second deployment screenshot showing address `0x5DEeD1A620e9ecd70b1A4e6f0F130CF9D272666`, status **FINALIZED**, consensus **Accepted**, and GenVM **SUCCESS**. The transaction hash is abbreviated (`0x69e2775a...a72d42d3`), and neither chain ID nor source/bytecode appears in the screenshot. This is deployment evidence only; no AI call against this address has yet been reported.
+The user supplied a second deployment screenshot showing a contract address and deployment **FINALIZED**, consensus **Accepted**, and GenVM **SUCCESS**. The deployment hash is abbreviated (`0x69e2775a...a72d42d3`), and neither chain ID nor source/bytecode appears in the screenshot. The following successful call's full `To` field gives the canonical address `0x5DEeD1A620e9ecd70b1Ae4e6f0F130CF9D272666`; this corrects an earlier one-character-short screenshot transcription. Source equivalence remains unverified.
+
+### Matching-case AI/Equivalence call — user-supplied
+
+The user supplied transaction `0x8f7a58bf3de0cbb9c6a1578eae9dcf7967825b50babd02dd00d930e2e4941631` to the canonical Evaluator address above. It reports **FINALIZED**, consensus **Accepted**, GenVM **SUCCESS/Return**, rotation count `0`, and initial validators `5`. The method is `evaluate_pair` with the matching fictional case in the manifest. The Equivalence output reports `material_similarity`, sufficient evidence, same material issue, no outcome difference, no potential contradiction, and four similarity findings. This is a positive user-reported runtime AI/EP result, not legal correctness or independent receipt retrieval.
+
+Persisted state has not yet been read back for this evaluation. Confirm `get_evaluation("EVAL-STUDIONET-MATCH-001")`, `has_evaluation(...)`, and count before calling it a completed persisted evaluation. The transaction detail itself does not show chain ID; the user's earlier Studio selector confirmation was for stable Studionet 61999, but this transaction's network context is not independently retrieved.
