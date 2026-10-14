@@ -45,7 +45,7 @@ def _open_judged(contract, vm, alice, bob, case_id=None):
     case_id = case_id or FIXTURE["case_id"]
     module = __import__(contract.__class__.__module__, fromlist=["Address"])
     vm.sender = alice
-    contract.open_case(case_id, "AP-OPEN", module.Address(bob), FIXTURE["case_type"], 1, _digest("fictional opening"))
+    contract.open_case(case_id, "AP-OPEN", module.Address(bob).as_hex, FIXTURE["case_type"], 1, _digest("fictional opening"))
     for n, item in enumerate(FIXTURE["evidence"], 1):
         vm.sender = alice if n == 1 else bob
         contract.append_evidence(case_id, n, f"AP-EVID-{n}", item["evidence_id"], _digest(item["text"]), 1, _digest(f"source-{n}"))

@@ -55,7 +55,7 @@ def _open_and_lock(contract, direct_vm, direct_alice, direct_bob, case_id=None, 
     direct_vm.sender = direct_alice
     opening_digest = _digest("fictional opening evidence commitment")
     contract.open_case(
-        case_id, f"{prefix}-OPEN", module.Address(direct_bob),
+        case_id, f"{prefix}-OPEN", module.Address(direct_bob).as_hex,
         FIXTURE["case_type"], FIXTURE["policy_version"], opening_digest,
     )
     for index, evidence in enumerate(FIXTURE["evidence"], start=1):
@@ -176,7 +176,7 @@ def test_missing_evidence_lock_rejected_without_mutation(direct_vm, direct_deplo
     contract = _deploy(direct_deploy)
     module = __import__(contract.__class__.__module__, fromlist=["Address"])
     direct_vm.sender = direct_alice
-    contract.open_case(FIXTURE["case_id"], "ACTION-OPEN-JUDGMENT", module.Address(direct_bob), FIXTURE["case_type"], 1, _digest("opening"))
+    contract.open_case(FIXTURE["case_id"], "ACTION-OPEN-JUDGMENT", module.Address(direct_bob).as_hex, FIXTURE["case_type"], 1, _digest("opening"))
     before = _snapshot_and_history(contract)
     with direct_vm.expect_revert("case evidence must be locked before adjudication"):
         _adjudicate(contract, direct_vm, version=1)

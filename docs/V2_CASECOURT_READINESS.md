@@ -2,9 +2,9 @@
 
 **Review date:** 2026-10-14
 **Target:** stable GenLayer Studionet, chain ID `61999`
-**Starting repository commit:** `2742ab7e908abd59d8fc9187b16f6bfba57106bb`
+**Starting repository commit:** `ee9d4bf1df57de1509b7e57db2b8ae25a8a20db1`
 **Contract source:** [`contracts/case_court.py`](../contracts/case_court.py)
-**Source SHA-256 at review:** `e9f4d73fe243eabd1e18decf2c16abbfa742ee692f04933ca578bf28d4f395de`
+**Source SHA-256 at initial review:** `e9f4d73fe243eabd1e18decf2c16abbfa742ee692f04933ca578bf28d4f395de`
 
 ## Decision
 
@@ -99,11 +99,20 @@ Do not submit until the user separately approves the displayed AI transaction fe
 ## Local verification (2026-10-14)
 
 - New reviewer authorization regression: **1 passed**.
-- Focused CaseCourt suite: **148 passed** (Direct Mode; AI/EP mocked).
-- Full protected Python suite: **244 passed, 4 skipped, 1 failed**. The only failure is the known experimental two-contract Direct Mode probe, which tries to load two `gl.Contract` classes into one process; the harness raises `only one contract is allowed` before the call. The opt-in localnet identity and three local integration tests are skipped. This does not establish cross-contract runtime support.
+- Focused CaseCourt suite before the Studio ABI correction: **148 passed** (Direct Mode; AI/EP mocked).
+- Post-correction focused address/open-case tests: **16 passed, 28 deselected**.
+- Latest full protected Python suite: **247 passed, 4 skipped, 1 failed**. The only failure is the known experimental two-contract Direct Mode probe, which tries to load two `gl.Contract` classes into one process; the harness raises `only one contract is allowed` before the call. The opt-in localnet identity and three local integration tests are skipped. This does not establish cross-contract runtime support.
 - Frontend: lint, typecheck, Vitest, and production build are run against existing source; the transaction gate remains FINALIZED + MAJORITY_AGREE + FINISHED_WITH_RETURN.
 - GenVM lint/schema for CaseCourt, Registry, and Evaluator: cached lint and schema validation pass; upstream runner lookup is blocked by Windows socket permission (`WinError 10013`) and the cached linter reports a newer runner hash. No stable-runner compatibility is established.
 
 ## Next approval needed
 
 Before implementing or enabling appellate governance, choose the reviewer model and the stuck-appeal deadline/recovery policy. Until then, only the fictional deterministic Phase A smoke test is proposed; keep governance writes disabled and Web Render disabled. CaseCourt production/legal readiness remains **NO-GO**.
+
+## Studio `open_case` interface correction — 2026-10-14
+
+The user supplied a Studio transaction for `open_case` to the reported CaseCourt address `0xf1Ab9107180F0b467D03c72eeC8e3bA62757795b`. Explorer reported FINALIZED and Accepted consensus, but GenVM returned **ERROR / Contract Error** with `AttributeError: 'int' object has no attribute 'as_hex'`. Argument 3 was entered in Studio as the correct respondent wallet address `0x1Af111b06E6f6A05Bd41572A016318f1356aF85c`; the transaction's decoded representation showed its integer value, and the subsequent user read of `get_case_count()` returned `0`. This is user-supplied evidence, not independently retrieved receipt data. It proves the call did not create the case on that deployment.
+
+The cause is the public signature `respondent: Address`: the Studio call path delivered the address as an integer, while the contract immediately accessed `.as_hex`. The source now accepts a bounded 42-character `0x` hex string, rejects malformed/non-string values before mutation, converts it with `Address(respondent)`, then applies the existing zero/self checks and persists the normalized address. This follows the official [GenLayer Address Type documentation](https://docs.genlayer.com/developers/intelligent-contracts/types/address), which recommends string parameters and conversion at the contract boundary. The already deployed contract cannot be changed by editing source; the corrected source requires a fresh deployment at a new address before repeating Phase A. Do not retry the write against the old deployment.
+
+Corrected source SHA-256: `d7270713e53108be58b1c6795ba492bdfb1f8d1bf0246b8df26b2efae51f60e9`. Cached GenVM lint/schema passes (50 methods, 22 views, 28 writes, no constructor parameters); stable runner compatibility remains unverified. New Direct Mode tests cover valid address-string registration and rejection of integer, malformed-length, and non-hex values without state changes. The post-fix full suite is 247 passed, 4 skipped, 1 unrelated Direct Mode harness failure; focused open-case tests are 16 passed, 28 deselected. The three production contracts were not tested on an actual runtime by these commands.

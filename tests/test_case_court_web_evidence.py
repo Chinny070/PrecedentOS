@@ -22,7 +22,7 @@ def _framed(fields):
 def _open_case(contract, vm, alice, bob, case_id=CASE_ID):
     module = importlib.import_module(contract.__class__.__module__)
     vm.sender = alice
-    contract.open_case(case_id, "WEB-OPEN", module.Address(bob), "fictional-source-review", 1,
+    contract.open_case(case_id, "WEB-OPEN", module.Address(bob).as_hex, "fictional-source-review", 1,
                        _digest("fictional public opening packet"))
     return case_id
 
@@ -62,7 +62,7 @@ def _open_judged_case(contract, vm, alice, bob, case_id):
     fixture = json.loads((ROOT / "tests" / "fixtures" / "fictional_case_judgments.json").read_text(encoding="utf-8"))
     module = importlib.import_module(contract.__class__.__module__)
     vm.sender = alice
-    contract.open_case(case_id, f"{case_id}-OPEN", module.Address(bob), fixture["case_type"], 1,
+    contract.open_case(case_id, f"{case_id}-OPEN", module.Address(bob).as_hex, fixture["case_type"], 1,
                        _digest("fictional public opening"))
     for index, item in enumerate(fixture["evidence"], 1):
         vm.sender = alice if index == 1 else bob
@@ -241,7 +241,7 @@ def test_mocked_web_render_binds_content_digest_excerpt_and_case_evidence(
     # valid observation by substituting another case ID.
     direct_vm.sender = direct_alice
     replay_case = "WEB-REPLAY-CASE"
-    contract.open_case(replay_case, "WEB-REPLAY-OPEN", module.Address(direct_bob), "fictional-source-review", 1,
+    contract.open_case(replay_case, "WEB-REPLAY-OPEN", module.Address(direct_bob).as_hex, "fictional-source-review", 1,
                        _digest("separate fictional case opening"))
     replay_before = contract.get_case(replay_case)
     with direct_vm.expect_revert("web source verification not found"):
@@ -481,7 +481,7 @@ def test_appeal_freeze_requires_mutual_withdrawal_and_cannot_replay_target(
     module = importlib.import_module(contract.__class__.__module__)
     case_id = "WITHDRAW-CASE"
     direct_vm.sender = direct_alice
-    contract.open_case(case_id, "WITHDRAW-OPEN", module.Address(direct_bob), fixture["case_type"], 1,
+    contract.open_case(case_id, "WITHDRAW-OPEN", module.Address(direct_bob).as_hex, fixture["case_type"], 1,
                        _digest("fictional opening"))
     for index, item in enumerate(fixture["evidence"], 1):
         direct_vm.sender = direct_alice if index == 1 else direct_bob

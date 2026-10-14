@@ -611,7 +611,7 @@ class CaseCourt(gl.Contract):
         self,
         case_id: str,
         action_id: str,
-        respondent: Address,
+        respondent: str,
         case_type: str,
         policy_version: u32,
         opening_evidence_digest: str,
@@ -620,12 +620,20 @@ class CaseCourt(gl.Contract):
         self._validate_action_id(action_id)
         self._validate_public_label(case_type, MAX_CASE_TYPE_LENGTH, "invalid case type")
         self._validate_digest(opening_evidence_digest, "invalid evidence commitment")
+        if (
+            not isinstance(respondent, str)
+            or len(respondent) != 42
+            or respondent[:2].lower() != "0x"
+            or any(char not in "0123456789abcdefABCDEF" for char in respondent[2:])
+        ):
+            raise gl.vm.UserError("invalid respondent address")
+        respondent_address = Address(respondent)
         if policy_version != SUPPORTED_POLICY_VERSION:
             raise gl.vm.UserError("unsupported policy version")
         case_key = self._case_key(case_id)
         if case_key in self.records:
             raise gl.vm.UserError("case identifier already used")
-        if respondent == ZERO_ADDRESS or respondent == gl.message.sender_address:
+        if respondent_address == ZERO_ADDRESS or respondent_address == gl.message.sender_address:
             raise gl.vm.UserError("case parties must be distinct nonzero addresses")
         if self.case_count >= MAX_CASES:
             raise gl.vm.UserError("case capacity reached")
@@ -637,7 +645,7 @@ class CaseCourt(gl.Contract):
         snapshot = {
             "case_id": case_id,
             "petitioner": sender.as_hex,
-            "respondent": respondent.as_hex,
+            "respondent": respondent_address.as_hex,
             "case_type": case_type,
             "schema_version": int(SUPPORTED_CASE_SCHEMA_VERSION),
             "policy_version": int(policy_version),
@@ -691,7 +699,7 @@ class CaseCourt(gl.Contract):
             "opened_at": now,
         }
         payload_digest = self._payload_digest(
-            ["open_case", case_id, str(respondent), case_type, str(policy_version), opening_evidence_digest]
+            ["open_case", case_id, str(respondent_address), case_type, str(policy_version), opening_evidence_digest]
         )
         self.records[case_key] = self._encode(snapshot)
         self.case_count = u32(self.case_count + 1)

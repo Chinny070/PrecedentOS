@@ -38,7 +38,7 @@ def _judgment_answer(outcome="GRANT"):
 def _open_judgment(contract, vm, alice, bob, case_id, judgment_id, prefix, outcome="GRANT"):
     module = __import__(contract.__class__.__module__, fromlist=["Address"])
     vm.sender = alice
-    contract.open_case(case_id, f"{prefix}-OPEN", module.Address(bob), FIXTURE["case_type"], 1, _digest(prefix + " opening"))
+    contract.open_case(case_id, f"{prefix}-OPEN", module.Address(bob).as_hex, FIXTURE["case_type"], 1, _digest(prefix + " opening"))
     for index, evidence in enumerate(FIXTURE["evidence"], 1):
         vm.sender = alice if index == 1 else bob
         contract.append_evidence(
@@ -247,7 +247,7 @@ def test_cross_case_challenge_requires_caller_to_belong_to_both_cases(direct_vm,
     # The second-case authorization guard must reject before any append/counter update.
     vm_module = __import__(contract.__class__.__module__, fromlist=["Address"])
     direct_vm.sender = direct_alice
-    contract.open_case("FICT-TRIBUNAL-C", "TRIB-C-OPEN", vm_module.Address(direct_charlie),
+    contract.open_case("FICT-TRIBUNAL-C", "TRIB-C-OPEN", vm_module.Address(direct_charlie).as_hex,
                        FIXTURE["case_type"], 1, _digest("TRIB-C opening"))
     for index, evidence in enumerate(FIXTURE["evidence"], 1):
         direct_vm.sender = direct_alice if index == 1 else direct_charlie

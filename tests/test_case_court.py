@@ -27,9 +27,9 @@ def open_case(contract, vm, petitioner, respondent, case=None, action_id="ACTION
 
 
 def address_for(contract, value):
-    """Wrap direct-mode fixture bytes as the SDK Address method argument type."""
+    """Return the hex string Studio and public callers pass for address arguments."""
     module = sys.modules[contract.__class__.__module__]
-    return module.Address(value)
+    return module.Address(value).as_hex
 
 
 def append_evidence(
@@ -204,6 +204,20 @@ def test_open_case_rejects_invalid_parties(
     with direct_vm.expect_revert("case parties must be distinct nonzero addresses"):
         contract.open_case("FICT-CASE-0001", "ACTION-OPEN-1", address_for(contract, respondent), "Fictional case", 1, DIGEST_A)
     assert contract.get_case_count() == 0
+
+
+@pytest.mark.parametrize("respondent", [12345, "0x1234", "0x" + "g" * 40])
+def test_open_case_rejects_non_address_wire_values_without_mutation(
+    direct_vm, direct_deploy, direct_alice, respondent
+):
+    contract = direct_deploy(str(CONTRACT))
+    before = (contract.get_case_count(), contract.get_action_count())
+    direct_vm.sender = direct_alice
+    with direct_vm.expect_revert("invalid respondent address"):
+        contract.open_case(
+            "FICT-CASE-0001", "ACTION-OPEN-1", respondent, "Fictional case", 1, DIGEST_A
+        )
+    assert (contract.get_case_count(), contract.get_action_count()) == before
 
 
 def test_only_named_parties_can_append_evidence(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
