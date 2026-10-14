@@ -80,6 +80,21 @@ This overlay records live diagnostic evidence supplied by the user, not producti
 
 The frontend now requires explicit `MAJORITY_AGREE` plus `FINALIZED` plus `FINISHED_WITH_RETURN` before labeling an evaluation successful. Missing or conflicting consensus evidence remains unknown/failed. This is locally tested against SDK-shaped values; live parsing of the supplied transactions could not be independently checked in this host.
 
+## Stage 9 storage-compatibility continuation
+
+The 20 original feature rows above are retained. The following evidence overlay updates only what the Stage 9 continuation established; it does not upgrade any production row to live or stable-runner verification.
+
+| Area | Implementation status | Local test evidence | Runtime/live status |
+|---|---|---|---|
+| Evaluator nondeterministic callback storage boundary | IMPLEMENTED: decision validation moved to module-level pure functions; public method, stored record schema, input commitments and six compared decision fields preserved. | LOCALLY TESTED: Evaluator Direct Mode suite passes; callback AST guard confirms the callback does not reference `self`. | BLOCKED: exact stable runner and whether the reported warning is eliminated are unverified; production Evaluator not deployed. |
+| CaseCourt nondeterministic callback storage boundary | IMPLEMENTED: prompt/schema/equivalence helpers for judgment, appeal, contradiction and source comparison paths moved to module-level functions. Authorization, state reads before the callback, fields compared and write ordering are preserved. | LOCALLY TESTED: all CaseCourt Direct Mode suites pass; callback/helper source guard passes. | BLOCKED: no production CaseCourt execution; warning source and runner behavior unverified. |
+| Isolated bound-versus-pure capture diagnostic | IMPLEMENTED: a separate disposable two-method probe compares a bound pure helper against an equivalent free function. | LOCALLY TESTED with Direct Mode; both methods return and store expected booleans. | NOT RUNTIME VERIFIED: harness does not emit/measure GenVM storage-pickling warnings. New deployment/two writes need separate approval. |
+| Registry warning exposure | NO nondeterministic path exists in Registry. | LOCALLY TESTED: Registry suite passes; cached lint/schema passes. | Warning does not apply to its source path; Registry still BLOCKED from deployment by exact runner, fee and live functional proof requirements. |
+| Web Render safety | `WEB_RENDER_RUNTIME_ENABLED = False`; callback helper refactor does not change the gate. | LOCALLY TESTED: disabled-path and existing mocked Web Evidence tests pass. | BLOCKED / DISABLED: no runtime egress, redirect, DNS/private-IP, pre-read bound or fee proof. |
+| Stage 9 local regression snapshot | IMPLEMENTED and locally verified. | `python scripts/run_tests_safe.py tests`: **234 passed, 4 skipped**; frontend lint/typecheck passed, **70 passed**, production build passed; five cached GenVM lint/schema checks passed. | All GenVM checks report `I200`; upstream runner lookup fails with `WinError 10013`. No new live transaction or receipt was obtained. |
+
+For exact provenance and contract-specific deployment gates see [Stage 9 Storage Compatibility](V2_STAGE_9_STORAGE_COMPATIBILITY.md) and [Stage 9 Production Deployment Gate](V2_STAGE_9_PRODUCTION_DEPLOYMENT_GATE.md). The earlier live probe/transaction rows remain user-reported evidence only and still do not imply a deployed production contract.
+
 ## Stage 0 evidence snapshot
 
 - Repository `main` was at `71b0b67a5c434584e406c7dd7ab76e121f635a1a`; current `git status` showed only the pre-existing user-requested `manual-deployment/` directory untracked before these Stage 0 documents were added.

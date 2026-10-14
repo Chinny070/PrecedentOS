@@ -14,6 +14,40 @@ PROBE_CLASSIFICATIONS = ("NO_CONTRADICTION", "POTENTIAL_CONTRADICTION", "INSUFFI
 PROBE_PROMPT = "PrecedentOS disposable Studio diagnostic: bounded fictional contradiction check"
 
 
+def _pure_validate_result(value) -> dict[str, object]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except Exception:
+            raise gl.vm.UserError("diagnostic model response is malformed JSON")
+    required = {"classification", "decision_bearing", "evidence_sufficient", "reasoning_summary"}
+    if not isinstance(value, dict) or set(value) != required:
+        raise gl.vm.UserError("diagnostic model response has invalid fields")
+    classification = value["classification"]
+    decision_bearing = value["decision_bearing"]
+    sufficient = value["evidence_sufficient"]
+    reasoning = value["reasoning_summary"]
+    if classification not in PROBE_CLASSIFICATIONS:
+        raise gl.vm.UserError("diagnostic classification is unsupported")
+    if type(decision_bearing) is not bool or type(sufficient) is not bool:
+        raise gl.vm.UserError("diagnostic decision fields must be booleans")
+    if not isinstance(reasoning, str) or len(reasoning) > MAX_PROBE_REASONING_LENGTH:
+        raise gl.vm.UserError("diagnostic reasoning exceeds the character limit")
+    coherent = (
+        classification == "POTENTIAL_CONTRADICTION" and decision_bearing and sufficient
+        or classification == "NO_CONTRADICTION" and not decision_bearing and sufficient
+        or classification == "INSUFFICIENT" and not decision_bearing and not sufficient
+    )
+    if not coherent:
+        raise gl.vm.UserError("diagnostic decision fields are incoherent")
+    return {
+        "classification": classification,
+        "decision_bearing": decision_bearing,
+        "evidence_sufficient": sufficient,
+        "reasoning_summary": reasoning,
+    }
+
+
 class StudioRuntimeProbe(gl.Contract):
     """Incremental probe for storage, transaction context, AI, and custom EP."""
 
@@ -98,13 +132,15 @@ class StudioRuntimeProbe(gl.Contract):
 
         def analyze():
             raw = gl.nondet.exec_prompt(prompt, response_format="json")
-            return self._validate_result(raw)
+            # The validator is pure; call its module function so nondet
+            # callbacks do not retain this storage-backed diagnostic instance.
+            return _pure_validate_result(raw)
 
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
                 return False
             try:
-                leader = self._validate_result(leader_result.calldata)
+                leader = _pure_validate_result(leader_result.calldata)
                 validator = analyze()
                 return (
                     leader["classification"] == validator["classification"]
@@ -159,37 +195,7 @@ class StudioRuntimeProbe(gl.Contract):
                 raise gl.vm.UserError("invalid diagnostic probe identifier")
 
     def _validate_result(self, value) -> dict[str, object]:
-        if isinstance(value, str):
-            try:
-                value = json.loads(value)
-            except Exception:
-                raise gl.vm.UserError("diagnostic model response is malformed JSON")
-        required = {"classification", "decision_bearing", "evidence_sufficient", "reasoning_summary"}
-        if not isinstance(value, dict) or set(value) != required:
-            raise gl.vm.UserError("diagnostic model response has invalid fields")
-        classification = value["classification"]
-        decision_bearing = value["decision_bearing"]
-        sufficient = value["evidence_sufficient"]
-        reasoning = value["reasoning_summary"]
-        if classification not in PROBE_CLASSIFICATIONS:
-            raise gl.vm.UserError("diagnostic classification is unsupported")
-        if type(decision_bearing) is not bool or type(sufficient) is not bool:
-            raise gl.vm.UserError("diagnostic decision fields must be booleans")
-        if not isinstance(reasoning, str) or len(reasoning) > MAX_PROBE_REASONING_LENGTH:
-            raise gl.vm.UserError("diagnostic reasoning exceeds the character limit")
-        coherent = (
-            classification == "POTENTIAL_CONTRADICTION" and decision_bearing and sufficient
-            or classification == "NO_CONTRADICTION" and not decision_bearing and sufficient
-            or classification == "INSUFFICIENT" and not decision_bearing and not sufficient
-        )
-        if not coherent:
-            raise gl.vm.UserError("diagnostic decision fields are incoherent")
-        return {
-            "classification": classification,
-            "decision_bearing": decision_bearing,
-            "evidence_sufficient": sufficient,
-            "reasoning_summary": reasoning,
-        }
+        return _pure_validate_result(value)
 
     def _sha256_fields(self, fields: list[str]) -> str:
         framed = "".join(str(len(value.encode("utf-8"))) + ":" + value for value in fields)

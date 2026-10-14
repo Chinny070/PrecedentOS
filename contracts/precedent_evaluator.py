@@ -56,6 +56,103 @@ class EvaluationRecord:
     reasoning: str
 
 
+def _pure_validate_model_result(value) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise gl.vm.UserError("model result must be a JSON object")
+    required = (
+        "classification",
+        "same_material_issue",
+        "evidence_sufficient",
+        "outcomes_differ",
+        "material_similarity",
+        "potential_contradiction",
+        "similarities",
+        "differences",
+        "contradictions",
+        "reasoning",
+    )
+    if len(value) != len(required):
+        raise gl.vm.UserError("model result has unexpected fields")
+    for field in required:
+        if field not in value:
+            raise gl.vm.UserError("model result is missing a required field")
+
+    classification = value["classification"]
+    if classification not in CLASSIFICATIONS:
+        raise gl.vm.UserError("invalid model classification")
+    for field in (
+        "same_material_issue",
+        "evidence_sufficient",
+        "outcomes_differ",
+        "material_similarity",
+        "potential_contradiction",
+    ):
+        if type(value[field]) is not bool:
+            raise gl.vm.UserError("model decision fields must be booleans")
+
+    similarities = _pure_validate_findings(value["similarities"], "similarities")
+    differences = _pure_validate_findings(value["differences"], "differences")
+    contradictions = _pure_validate_findings(value["contradictions"], "contradictions")
+    reasoning = value["reasoning"]
+    if not isinstance(reasoning, str) or not reasoning.strip() or len(reasoning) > MAX_RATIONALE_LENGTH:
+        raise gl.vm.UserError("invalid model reasoning")
+
+    normalized = {
+        "classification": classification,
+        "same_material_issue": value["same_material_issue"],
+        "evidence_sufficient": value["evidence_sufficient"],
+        "outcomes_differ": value["outcomes_differ"],
+        "material_similarity": value["material_similarity"],
+        "potential_contradiction": value["potential_contradiction"],
+        "similarities": similarities,
+        "differences": differences,
+        "contradictions": contradictions,
+        "reasoning": reasoning,
+    }
+    if not _pure_consistent_decision(normalized):
+        raise gl.vm.UserError("inconsistent model decision fields")
+    return normalized
+
+
+def _pure_validate_findings(findings, label: str) -> list[str]:
+    if not isinstance(findings, list) or len(findings) > MAX_FINDING_COUNT:
+        raise gl.vm.UserError("invalid " + label + " list")
+    normalized = []
+    for finding in findings:
+        if not isinstance(finding, str) or not finding.strip() or len(finding) > MAX_FINDING_LENGTH:
+            raise gl.vm.UserError("invalid " + label + " item")
+        normalized.append(finding)
+    return normalized
+
+
+def _pure_consistent_decision(result: dict[str, object]) -> bool:
+    classification = result["classification"]
+    if classification == "insufficient_evidence":
+        return (
+            not result["evidence_sufficient"]
+            and not result["potential_contradiction"]
+            and len(result["contradictions"]) == 0
+        )
+    if not result["evidence_sufficient"]:
+        return False
+    if result["potential_contradiction"]:
+        return (
+            classification == "possible_contradiction"
+            and result["same_material_issue"]
+            and result["outcomes_differ"]
+            and len(result["contradictions"]) > 0
+        )
+    if len(result["contradictions"]) > 0:
+        return False
+    if classification == "possible_contradiction":
+        return False
+    if classification == "material_similarity":
+        return result["same_material_issue"] and result["material_similarity"]
+    if classification == "no_material_relation":
+        return not result["same_material_issue"] and not result["material_similarity"]
+    return False
+
+
 class PrecedentEvaluator(gl.Contract):
     """Append-only, bounded pairwise research assessment; IDs are not Registry-verified."""
 
@@ -116,13 +213,15 @@ class PrecedentEvaluator(gl.Contract):
 
         def analyze():
             raw_result = gl.nondet.exec_prompt(prompt, response_format="json")
-            return self._validate_model_result(raw_result)
+            # Use a module-level pure validator so this closure does not retain
+            # the storage-backed contract instance.
+            return _pure_validate_model_result(raw_result)
 
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
                 return False
             try:
-                leader_result_data = self._validate_model_result(leader_result.calldata)
+                leader_result_data = _pure_validate_model_result(leader_result.calldata)
                 validator_result_data = analyze()
                 for field in DECISION_FIELDS:
                     if leader_result_data[field] != validator_result_data[field]:
@@ -279,98 +378,13 @@ class PrecedentEvaluator(gl.Contract):
         return hashlib.sha256(framed.encode("utf-8")).hexdigest()
 
     def _validate_model_result(self, value) -> dict[str, object]:
-        if not isinstance(value, dict):
-            raise gl.vm.UserError("model result must be a JSON object")
-        required = (
-            "classification",
-            "same_material_issue",
-            "evidence_sufficient",
-            "outcomes_differ",
-            "material_similarity",
-            "potential_contradiction",
-            "similarities",
-            "differences",
-            "contradictions",
-            "reasoning",
-        )
-        if len(value) != len(required):
-            raise gl.vm.UserError("model result has unexpected fields")
-        for field in required:
-            if field not in value:
-                raise gl.vm.UserError("model result is missing a required field")
-
-        classification = value["classification"]
-        if classification not in CLASSIFICATIONS:
-            raise gl.vm.UserError("invalid model classification")
-        for field in (
-            "same_material_issue",
-            "evidence_sufficient",
-            "outcomes_differ",
-            "material_similarity",
-            "potential_contradiction",
-        ):
-            if type(value[field]) is not bool:
-                raise gl.vm.UserError("model decision fields must be booleans")
-
-        similarities = self._validate_findings(value["similarities"], "similarities")
-        differences = self._validate_findings(value["differences"], "differences")
-        contradictions = self._validate_findings(value["contradictions"], "contradictions")
-        reasoning = value["reasoning"]
-        if not isinstance(reasoning, str) or not reasoning.strip() or len(reasoning) > MAX_RATIONALE_LENGTH:
-            raise gl.vm.UserError("invalid model reasoning")
-
-        normalized = {
-            "classification": classification,
-            "same_material_issue": value["same_material_issue"],
-            "evidence_sufficient": value["evidence_sufficient"],
-            "outcomes_differ": value["outcomes_differ"],
-            "material_similarity": value["material_similarity"],
-            "potential_contradiction": value["potential_contradiction"],
-            "similarities": similarities,
-            "differences": differences,
-            "contradictions": contradictions,
-            "reasoning": reasoning,
-        }
-        if not self._consistent_decision(normalized):
-            raise gl.vm.UserError("inconsistent model decision fields")
-        return normalized
+        return _pure_validate_model_result(value)
 
     def _validate_findings(self, findings, label: str) -> list[str]:
-        if not isinstance(findings, list) or len(findings) > MAX_FINDING_COUNT:
-            raise gl.vm.UserError("invalid " + label + " list")
-        normalized = []
-        for finding in findings:
-            if not isinstance(finding, str) or not finding.strip() or len(finding) > MAX_FINDING_LENGTH:
-                raise gl.vm.UserError("invalid " + label + " item")
-            normalized.append(finding)
-        return normalized
+        return _pure_validate_findings(findings, label)
 
     def _consistent_decision(self, result: dict[str, object]) -> bool:
-        classification = result["classification"]
-        if classification == "insufficient_evidence":
-            return (
-                not result["evidence_sufficient"]
-                and not result["potential_contradiction"]
-                and len(result["contradictions"]) == 0
-            )
-        if not result["evidence_sufficient"]:
-            return False
-        if result["potential_contradiction"]:
-            return (
-                classification == "possible_contradiction"
-                and result["same_material_issue"]
-                and result["outcomes_differ"]
-                and len(result["contradictions"]) > 0
-            )
-        if len(result["contradictions"]) > 0:
-            return False
-        if classification == "possible_contradiction":
-            return False
-        if classification == "material_similarity":
-            return result["same_material_issue"] and result["material_similarity"]
-        if classification == "no_material_relation":
-            return not result["same_material_issue"] and not result["material_similarity"]
-        return False
+        return _pure_consistent_decision(result)
 
     def _build_prompt(
         self, record_a_id: str, record_a_digest: str, passage_a: str,

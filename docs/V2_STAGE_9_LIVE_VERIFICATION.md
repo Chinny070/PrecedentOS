@@ -42,7 +42,7 @@ The installed 1.1.8 `getTransaction` decoder creates `resultName` from the trans
 
 This conservative predicate is tested locally against SDK-shaped objects. It has not yet been validated against a returned object from the live Studionet RPC because the independent lookup failed.
 
-## Nondeterministic storage warning audit
+## Nondeterministic storage warning audit at the starting commit
 
 Observed message, supplied by the user: `Detected pickling storage class. Reading storage in nondet mode is not supported`.
 
@@ -54,7 +54,7 @@ Source audit:
 - **PrecedentEvaluator:** its leader/validator closures call bound validation helpers through `self`; the comparison inputs are prepared before the nondeterministic call and no `self.evaluations` map access is intended inside those helpers. The closure pattern remains a runtime risk until it is proven harmless or refactored and tested.
 - **CaseCourt:** its nondeterministic paths likewise call bound validators/equivalence helpers through `self`. Case/evidence/appeal storage is collected into deterministic local objects before those blocks; no storage map access is intended inside the cited validation helpers. Given the warning, this pattern is also a runtime risk pending trace/reproduction. Registry is unaffected by this specific risk.
 
-No production contract was modified in this stage. Before deploying Evaluator or CaseCourt, obtain a transaction trace for the probe warning and test a minimal refactor that makes pure model-validation/equivalence helpers independent of the storage-backed contract instance, or explicitly copies any required storage objects into memory using the documented API. Preserve the current write-after-equivalence ordering and test rejection/state rollback again. Do not treat a successful probe evaluation as proof that all production paths are safe.
+At this report's starting commit, no production contract had yet been modified for the warning. The source-level changes and regression evidence from the continuation of Stage 9 are recorded below. Do not treat the change or Direct Mode results as proof that the live warning is gone.
 
 ## Frontend changes
 
@@ -86,12 +86,24 @@ Existing Direct Mode tests remain mocks and cached GenVM lint is not a live runn
 
 1. Independent stable Studionet transaction/consensus reads failed with `fetch failed` in this host.
 2. The installed SDK's `resultName` field semantics need one independently retrieved live `GenLayerTransaction` object to confirm the current explorer's Undetermined label maps to `NO_MAJORITY` (or another explicit non-agreement result).
-3. The storage warning needs the probe `debugTraceTransaction` / node logs and a controlled source-level reproduction; Evaluator/CaseCourt remain at risk until that gate is closed.
+3. The storage warning's origin and elimination remain unverified. The production Evaluator, CaseCourt and diagnostic now call module-level pure helpers from nondeterministic callbacks, and a new A/B diagnostic compares a bound-helper callback with a module-level pure function in Direct Mode. A GenVM/Studionet A/B execution with complete logs/trace is still required; the deployed diagnostic uses the prior source.
 4. Production Registry, Evaluator and CaseCourt addresses are unverified/unavailable; no production contract was deployed or verified.
 5. Stable Studionet runner/fee compatibility, actual production contract validation, cross-contract calls, successful and rejected production writes, and appeal/freeze behavior remain unverified.
 6. Reviewer governance policy, appeal liveness and recovery policy remain open; Web Render egress, redirect, DNS/private-IP and pre-read resource protections remain unverified and disabled.
 
 **Stage 9 verdict:** **CONDITIONAL GO** for continued read-only evidence review and local adapter validation. **NO-GO** for production contract deployment or governance writes until the storage warning, stable runtime compatibility, fees, contract addresses, and policy/security gates are resolved.
+
+## Stage 9 storage-compatibility continuation
+
+The continuation refactored every active production `run_nondet_unsafe` validation/prompt helper path to module-level pure functions. `PrecedentEvaluator`, CaseCourt's source comparison, judgment, contradiction and appeal paths, the disabled Web Render path, and `StudioRuntimeProbe` no longer access validation helpers through a bound `self` inside their nondeterministic callbacks. The source audit found no intended storage reads in these helpers before the refactor. Inputs are read/validated in deterministic code and persisted only after the EP call returns. Registry has no nondeterministic call.
+
+An isolated `NondetStorageCaptureProbe` test contract exercises both a bound-self helper and an equivalent module-level function using Direct Mode. The local test passed for both, and an AST guard checks that production callback bodies and `_pure_*` helpers do not reference `self`. The installed linter rejected `@staticmethod` contract methods with `E022`, so the implementation uses module-level functions and retains simple instance wrappers. This is a verified local source change, not evidence that the warning is removed by GenVM.
+
+Current official documentation states that persistent storage cannot be read inside nondeterministic blocks and documents `gl.storage.copy_to_memory` for storage values needed there. No relevant storage read was required in the audited validation helpers, so this change avoids rather than copies any storage-backed instance. The exact warning cause remains unproven because this host did not retrieve a live trace and the user-deployed probe still runs its pre-refactor bytecode. Do not redeploy or send the new A/B transactions without separate explicit approval.
+
+Continuation verification: focused affected Python suites **128 passed**; full protected Python suite **234 passed, 4 skipped**; `genvm-lint 0.11.1rc2` passed lint/schema for Registry, Evaluator, CaseCourt, the original probe, and the new A/B diagnostic using cached artifacts; frontend lint/typecheck passed, Vitest **70 passed**, and production build passed. The linter's upstream lookup remains blocked by `WinError 10013` and reports a newer cached-runner warning; no stable Studionet runner compatibility is established. Full details are in [Stage 9 Storage Compatibility](V2_STAGE_9_STORAGE_COMPATIBILITY.md) and [Production Deployment Gate](V2_STAGE_9_PRODUCTION_DEPLOYMENT_GATE.md).
+
+**Updated Stage 9 verdict:** source-level storage capture risk reduced; warning origin/elimination **BLOCKED** on an approved runtime A/B test. Registry is separately unaffected by this warning but not deployment-ready. Evaluator and CaseCourt remain **NO-GO** for production deployment; CaseCourt also retains independent governance, appeal/finality and Web Render security blockers. Overall production deployment remains **NO-GO**.
 
 ## References
 
