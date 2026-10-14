@@ -151,10 +151,12 @@ def test_case_source_requires_counterparty_approval_and_records_bounded_request(
     assert contract.get_web_source(CASE_ID, "SOURCE-A", 1)["status"] == "REQUESTED"
 
 
-def test_web_render_is_gated_and_rejected_attempt_preserves_registered_request(
-    direct_vm, direct_deploy, direct_alice, direct_bob,
+def test_web_render_can_still_be_force_disabled_and_rejected_attempt_preserves_registered_request(
+    direct_vm, direct_deploy, direct_alice, direct_bob, monkeypatch,
 ):
     contract = direct_deploy(str(CONTRACT))
+    module = importlib.import_module(contract.__class__.__module__)
+    monkeypatch.setattr(module, "WEB_RENDER_RUNTIME_ENABLED", False)
     _open_case(contract, direct_vm, direct_alice, direct_bob)
     _register_case_source(contract, direct_vm, direct_alice, direct_bob)
     _request_capture(contract, direct_vm, direct_alice)
@@ -166,6 +168,21 @@ def test_web_render_is_gated_and_rejected_attempt_preserves_registered_request(
                                     "WEB-CAPTURE-GATED")
     assert (contract.get_case(CASE_ID), contract.get_web_source(CASE_ID, "SOURCE-A", 1),
             contract.get_web_retrieval_request(CASE_ID, "SOURCE-A", 1, "WEB-REQUEST-A")) == before
+
+
+def test_web_render_host_allowlist_rejects_non_curated_public_hosts(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    contract = direct_deploy(str(CONTRACT))
+    module = importlib.import_module(contract.__class__.__module__)
+    _open_case(contract, direct_vm, direct_alice, direct_bob)
+    snapshot = contract.get_case(CASE_ID)
+    direct_vm.sender = direct_alice
+    with direct_vm.expect_revert("not on the approved Web Render allowlist"):
+        contract.register_web_source(
+            CASE_ID, int(snapshot["version"]), "SOURCE-B-REG", "SOURCE-B",
+            "https://example-not-allowlisted.org/page", "WEB-EVID-B", "CASE", "",
+        )
 
 
 def test_unavailable_status_is_labeled_caller_report_not_render_proof_and_retries_are_bounded(
@@ -545,15 +562,23 @@ def test_appeal_freeze_requires_mutual_withdrawal_and_cannot_replay_target(
 
 
 def test_mutual_withdrawal_cannot_replace_an_accepted_appellate_ruling(
-    direct_vm, direct_deploy, direct_alice, direct_bob,
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie,
 ):
     contract = direct_deploy(str(CONTRACT))
+    module = importlib.import_module(contract.__class__.__module__)
     case_id, appeal_id = "WITHDRAW-RULING-CASE", "WITHDRAW-RULING-APPEAL"
     fixture = _open_judged_case(contract, direct_vm, direct_alice, direct_bob, case_id)
     grounds = _file_case_appeal(contract, direct_vm, direct_alice, direct_bob, case_id, appeal_id)
     direct_vm.sender = direct_bob
     contract.lock_appeal_evidence(case_id, appeal_id, int(contract.get_case(case_id)["version"]), "WR-LOCK")
+    direct_vm.sender = direct_bob
+    contract.propose_appeal_reviewer(case_id, appeal_id, int(contract.get_case(case_id)["version"]), "WR-RV-PROPOSE",
+                                     module.Address(direct_charlie).as_hex)
+    proposal_commitment = contract.get_appeal(appeal_id)["reviewer_proposal_commitment"]
     direct_vm.sender = direct_alice
+    contract.approve_appeal_reviewer(case_id, appeal_id, int(contract.get_case(case_id)["version"]), "WR-RV-APPROVE",
+                                     module.Address(direct_charlie).as_hex, proposal_commitment)
+    direct_vm.sender = direct_charlie
     contract.begin_appeal_review(case_id, appeal_id, int(contract.get_case(case_id)["version"]), "WR-BEGIN")
     direct_vm.clear_mocks()
     direct_vm.mock_llm("bounded fictional appellate assessment", json.dumps({

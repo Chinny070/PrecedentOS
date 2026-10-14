@@ -11,8 +11,9 @@ if (studionet.id !== TARGET_CHAIN_ID) {
 export const addresses = {
   registry: import.meta.env.VITE_GENLAYER_REGISTRY_ADDRESS?.trim() ?? '',
   evaluator: import.meta.env.VITE_GENLAYER_EVALUATOR_ADDRESS?.trim() ?? '',
+  caseCourt: import.meta.env.VITE_GENLAYER_CASECOURT_ADDRESS?.trim() ?? '',
 };
 
-export const hasConfiguredContracts = Boolean(addresses.registry && addresses.evaluator);
+export const hasConfiguredContracts = Boolean(addresses.registry && addresses.evaluator && addresses.caseCourt);
 export const isAddress = (value: string): value is `0x${string}` =>
   /^0x[0-9a-fA-F]{40}$/.test(value) && !/^0x0{40}$/i.test(value);

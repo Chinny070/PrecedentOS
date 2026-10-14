@@ -6,6 +6,7 @@ finality, or chain-level rollback.
 """
 
 import hashlib
+import importlib
 import json
 from pathlib import Path
 
@@ -389,8 +390,9 @@ def test_supersession_cycle_guard_and_graph_bound_are_enforced(direct_vm, direct
     assert contract.get_authority_relationship_count() == 128
 
 
-def test_resolved_appeal_alone_can_append_reversal_and_preserves_original_and_challenge(direct_vm, direct_deploy, direct_alice, direct_bob):
+def test_resolved_appeal_alone_can_append_reversal_and_preserves_original_and_challenge(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = direct_deploy(str(CONTRACT))
+    module = importlib.import_module(contract.__class__.__module__)
     case_a, ja, _, jb = _setup_pair(contract, direct_vm, direct_alice, direct_bob)
     _file_challenge(contract, direct_vm, direct_bob, ja, jb)
     grounds = "The fictional decision applied the notice criterion incorrectly."
@@ -407,7 +409,15 @@ def test_resolved_appeal_alone_can_append_reversal_and_preserves_original_and_ch
     case = contract.get_case("FICT-TRIBUNAL-A")
     contract.lock_appeal_evidence("FICT-TRIBUNAL-A", appeal_id, int(case["version"]), "TRIBUNAL-REV-LOCK")
     case = contract.get_case("FICT-TRIBUNAL-A")
+    direct_vm.sender = direct_bob
+    contract.propose_appeal_reviewer("FICT-TRIBUNAL-A", appeal_id, int(contract.get_case("FICT-TRIBUNAL-A")["version"]),
+                                     "TRIBUNAL-RV-PROPOSE", module.Address(direct_charlie).as_hex)
+    proposal_commitment = contract.get_appeal(appeal_id)["reviewer_proposal_commitment"]
     direct_vm.sender = direct_alice
+    contract.approve_appeal_reviewer("FICT-TRIBUNAL-A", appeal_id, int(contract.get_case("FICT-TRIBUNAL-A")["version"]),
+                                     "TRIBUNAL-RV-APPROVE", module.Address(direct_charlie).as_hex, proposal_commitment)
+    case = contract.get_case("FICT-TRIBUNAL-A")
+    direct_vm.sender = direct_charlie
     contract.begin_appeal_review("FICT-TRIBUNAL-A", appeal_id, int(case["version"]), "TRIBUNAL-REV-BEGIN")
     case = contract.get_case("FICT-TRIBUNAL-A")
     reversal = {

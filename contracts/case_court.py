@@ -61,10 +61,26 @@ MAX_CHALLENGE_TEXT_LENGTH = 800
 MAX_CHALLENGE_GROUNDS_LENGTH = 600
 MAX_CONTRADICTION_REASONING_LENGTH = 500
 MAX_JUDGMENT_UNCERTAINTY_FLAGS = 4
-# The documented render API is present in the pinned py-genlayer dependency,
-# but this project has not verified redirects, egress controls, output limits,
-# or stable runner behavior. Keep every public capture path fail-closed.
-WEB_RENDER_RUNTIME_ENABLED = False
+# The documented render API is present in the pinned py-genlayer dependency.
+# This repository cannot inspect the pinned GenVM runner's own redirect,
+# DNS-rebinding, or egress enforcement: that behavior lives inside the
+# runner binary, not in any file available to this codebase or test suite.
+# The safeguard this project CAN verify and test is a contract-level host
+# allowlist (ALLOWED_WEB_RENDER_HOST_SUFFIXES below): only URLs on those
+# curated, already-public, stable hosts may be registered at all. Treat the
+# runner's own network isolation as unverified, not as proven safe.
+WEB_RENDER_RUNTIME_ENABLED = True
+# Curated for the bounded fictional Studionet demonstration only. Each entry
+# is an exact host or a dotted suffix; a URL's host must equal one of these
+# or end with one preceded by a dot. Keep this list short and reviewed.
+ALLOWED_WEB_RENDER_HOST_SUFFIXES = ("genlayer.com",)
+
+
+def _pure_host_is_allowlisted(host: str) -> bool:
+    for allowed in ALLOWED_WEB_RENDER_HOST_SUFFIXES:
+        if host == allowed or host.endswith("." + allowed):
+            return True
+    return False
 JUDGMENT_CRITERIA = (
     "Assess only the supplied fictional case evidence against the fixed criteria. "
     "Identify whether each required element is supported, unsupported, contradicted, "
@@ -2122,6 +2138,11 @@ class CaseCourt(gl.Contract):
             "appeal_evidence_ids": [],
             "appeal_evidence_root": "",
             "appeal_evidence_locked": False,
+            "reviewer_candidate": "",
+            "reviewer_proposed_by": "",
+            "reviewer_proposal_commitment": "",
+            "reviewer": "",
+            "reviewer_bound_at": "",
             "criteria_version": int(SUPPORTED_CRITERIA_VERSION),
             "criteria_digest": hashlib.sha256(APPEAL_CRITERIA.encode("utf-8")).hexdigest(),
             "status": "PENDING_ADJUDICATION",
@@ -2242,6 +2263,120 @@ class CaseCourt(gl.Contract):
         self.records[self._case_key(case_id)] = self._encode(snapshot)
 
     @gl.public.write
+    def propose_appeal_reviewer(
+        self, case_id: str, appeal_id: str, expected_version: u32, action_id: str, reviewer: str,
+    ) -> None:
+        """Either case party may propose (or replace) a named non-party reviewer.
+
+        A later proposal always supersedes an earlier, unapproved one. This is
+        also the supported path for mutually approved reviewer replacement:
+        it remains open until an appellate ruling is actually recorded, so an
+        unavailable or deadlocked bound reviewer can be replaced by mutual
+        agreement without reopening or reversing anything already decided.
+        """
+        self._validate_case_id(case_id)
+        self._validate_id(appeal_id, MAX_ACTION_ID_LENGTH, "invalid appeal identifier")
+        self._validate_action_id(action_id)
+        snapshot = self._get_case_or_revert(case_id)
+        appeal = self._get_active_appeal_or_revert(case_id, appeal_id, snapshot)
+        self._require_version(snapshot, expected_version)
+        self._require_party(snapshot)
+        if appeal["status"] not in ("PENDING_ADJUDICATION", "REVIEW_READY"):
+            raise gl.vm.UserError("appeal reviewer cannot be proposed in this state")
+        if self._appellate_ruling_key(appeal_id) in self.records:
+            raise gl.vm.UserError("appeal already has a recorded ruling")
+        if (
+            not isinstance(reviewer, str) or len(reviewer) != 42 or reviewer[:2].lower() != "0x"
+            or any(char not in "0123456789abcdefABCDEF" for char in reviewer[2:])
+        ):
+            raise gl.vm.UserError("invalid proposed reviewer address")
+        reviewer_address = Address(reviewer)
+        if (
+            reviewer_address == ZERO_ADDRESS
+            or self._same_address(reviewer_address.as_hex, str(snapshot["petitioner"]))
+            or self._same_address(reviewer_address.as_hex, str(snapshot["respondent"]))
+        ):
+            raise gl.vm.UserError("reviewer must be a non-party to the case")
+        self._ensure_action_available(action_id, snapshot)
+        self._ensure_capacity(snapshot)
+        proposer = gl.message.sender_address.as_hex
+        next_version = int(snapshot["version"]) + 1
+        proposal_commitment = self._appeal_reviewer_proposal_commitment(
+            appeal_id, case_id, reviewer_address.as_hex, proposer, next_version,
+        )
+        payload_digest = self._payload_digest([
+            "propose_appeal_reviewer", case_id, appeal_id, str(expected_version),
+            reviewer_address.as_hex.lower(), proposal_commitment,
+        ])
+        appeal["reviewer_candidate"] = reviewer_address.as_hex
+        appeal["reviewer_proposed_by"] = proposer
+        appeal["reviewer_proposal_commitment"] = proposal_commitment
+        snapshot["version"] = next_version
+        snapshot = self._append_action(
+            snapshot, action_id, "APPEAL_REVIEWER_PROPOSED", gl.message.sender_address,
+            expected_version, payload_digest, appeal_id,
+        )
+        appeal["last_case_version"] = int(snapshot["version"])
+        self.records[self._appeal_key(appeal_id)] = self._encode(appeal)
+        self.records[self._case_key(case_id)] = self._encode(snapshot)
+
+    @gl.public.write
+    def approve_appeal_reviewer(
+        self, case_id: str, appeal_id: str, expected_version: u32, action_id: str,
+        reviewer: str, expected_proposal_commitment: str,
+    ) -> None:
+        """The other case party binds the exact proposed reviewer, by commitment.
+
+        Requiring the caller to repeat the exact proposal commitment prevents
+        a stale approval (meant for an earlier candidate) from silently
+        binding a later, different proposal: if the proposal changes, this
+        call's own commitment check fails closed.
+        """
+        self._validate_case_id(case_id)
+        self._validate_id(appeal_id, MAX_ACTION_ID_LENGTH, "invalid appeal identifier")
+        self._validate_action_id(action_id)
+        self._validate_digest(expected_proposal_commitment, "invalid reviewer proposal commitment")
+        snapshot = self._get_case_or_revert(case_id)
+        appeal = self._get_active_appeal_or_revert(case_id, appeal_id, snapshot)
+        self._require_version(snapshot, expected_version)
+        self._require_party(snapshot)
+        if appeal["status"] not in ("PENDING_ADJUDICATION", "REVIEW_READY"):
+            raise gl.vm.UserError("appeal reviewer cannot be approved in this state")
+        if self._appellate_ruling_key(appeal_id) in self.records:
+            raise gl.vm.UserError("appeal already has a recorded ruling")
+        if not appeal["reviewer_candidate"] or not appeal["reviewer_proposal_commitment"]:
+            raise gl.vm.UserError("no pending reviewer proposal to approve")
+        if self._same_address(gl.message.sender_address.as_hex, str(appeal["reviewer_proposed_by"])):
+            raise gl.vm.UserError("the proposing party cannot also approve the reviewer")
+        if (
+            not isinstance(reviewer, str) or len(reviewer) != 42 or reviewer[:2].lower() != "0x"
+            or any(char not in "0123456789abcdefABCDEF" for char in reviewer[2:])
+            or not self._same_address(Address(reviewer).as_hex, str(appeal["reviewer_candidate"]))
+        ):
+            raise gl.vm.UserError("approved reviewer does not match the pending candidate")
+        if expected_proposal_commitment != appeal["reviewer_proposal_commitment"]:
+            raise gl.vm.UserError("stale reviewer proposal commitment")
+        self._ensure_action_available(action_id, snapshot)
+        self._ensure_capacity(snapshot)
+        payload_digest = self._payload_digest([
+            "approve_appeal_reviewer", case_id, appeal_id, str(expected_version),
+            str(appeal["reviewer_candidate"]).lower(), expected_proposal_commitment,
+        ])
+        appeal["reviewer"] = str(appeal["reviewer_candidate"])
+        appeal["reviewer_bound_at"] = self._now_iso()
+        # Consume the proposal so this exact approval cannot be replayed once bound.
+        appeal["reviewer_candidate"] = ""
+        appeal["reviewer_proposal_commitment"] = ""
+        snapshot["version"] += 1
+        snapshot = self._append_action(
+            snapshot, action_id, "APPEAL_REVIEWER_APPROVED_AND_BOUND", gl.message.sender_address,
+            expected_version, payload_digest, appeal_id,
+        )
+        appeal["last_case_version"] = int(snapshot["version"])
+        self.records[self._appeal_key(appeal_id)] = self._encode(appeal)
+        self.records[self._case_key(case_id)] = self._encode(snapshot)
+
+    @gl.public.write
     def begin_appeal_review(self, case_id: str, appeal_id: str, expected_version: u32, action_id: str) -> None:
         self._validate_case_id(case_id)
         self._validate_id(appeal_id, MAX_ACTION_ID_LENGTH, "invalid appeal identifier")
@@ -2249,7 +2384,7 @@ class CaseCourt(gl.Contract):
         snapshot = self._get_case_or_revert(case_id)
         appeal = self._get_active_appeal_or_revert(case_id, appeal_id, snapshot)
         self._require_version(snapshot, expected_version)
-        self._require_not_appellant(appeal)
+        self._require_bound_reviewer(appeal)
         if appeal["status"] != "REVIEW_READY" or not appeal["appeal_evidence_locked"]:
             raise gl.vm.UserError("appeal is not ready for review")
         self._ensure_action_available(action_id, snapshot)
@@ -2278,7 +2413,7 @@ class CaseCourt(gl.Contract):
         snapshot = self._get_case_or_revert(case_id)
         appeal = self._get_active_appeal_or_revert(case_id, appeal_id, snapshot)
         self._require_version(snapshot, expected_version)
-        self._require_not_appellant(appeal)
+        self._require_bound_reviewer(appeal)
         if appeal["status"] != "PENDING_ADJUDICATION" or not appeal["appeal_evidence_locked"]:
             raise gl.vm.UserError("appeal is not pending appellate adjudication")
         if hashlib.sha256(grounds_text.encode("utf-8")).hexdigest() != appeal["grounds_digest"]:
@@ -2974,6 +3109,13 @@ class CaseCourt(gl.Contract):
         snapshot = self._get_case_or_revert(str(appeal["case_id"]))
         self._require_party(snapshot)
 
+    def _require_bound_reviewer(self, appeal: dict[str, object]) -> None:
+        reviewer = str(appeal.get("reviewer", ""))
+        if not reviewer:
+            raise gl.vm.UserError("appeal has no mutually approved reviewer bound yet")
+        if not self._same_address(gl.message.sender_address.as_hex, reviewer):
+            raise gl.vm.UserError("caller is not the mutually approved reviewer for this appeal")
+
     def _case_closure_eligible(self, snapshot: dict[str, object]) -> bool:
         return (
             not bool(snapshot.get("case_closed", False))
@@ -3016,6 +3158,8 @@ class CaseCourt(gl.Contract):
             "localhost", "metadata", "metadata.google.internal", "example.invalid",
         ) or host.endswith((".localhost", ".local", ".internal", ".home", ".lan", ".test", ".invalid", ".example")):
             raise gl.vm.UserError("source URL host is local, reserved, or non-public")
+        if not _pure_host_is_allowlisted(host):
+            raise gl.vm.UserError("source URL host is not on the approved Web Render allowlist")
         if path and (not path.startswith("/") or "//" in path or any(segment in (".", "..") for segment in path.split("/"))):
             raise gl.vm.UserError("source URL path is ambiguous")
         if any(not ("a" <= char <= "z" or "A" <= char <= "Z" or "0" <= char <= "9" or char in "-._~/") for char in path):
@@ -3739,6 +3883,14 @@ class CaseCourt(gl.Contract):
             "PrecedentOS-APPEAL-COURT-FILING-v1", appeal_id, case_id, target_kind,
             target_id, str(target_version), target_commitment, parent_appeal_id,
             appellant.lower(), grounds_code, grounds_digest,
+        ])
+
+    def _appeal_reviewer_proposal_commitment(
+        self, appeal_id: str, case_id: str, reviewer: str, proposer: str, case_version: int,
+    ) -> str:
+        return self._sha256_fields([
+            "PrecedentOS-APPEAL-REVIEWER-PROPOSAL-v1", appeal_id, case_id,
+            reviewer.lower(), proposer.lower(), str(case_version),
         ])
 
     def _sha256_fields(self, fields: list[str]) -> str:
