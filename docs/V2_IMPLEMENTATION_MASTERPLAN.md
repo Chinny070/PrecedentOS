@@ -158,3 +158,11 @@ Start with a **time-bounded runtime verification report**, not new CaseCourt imp
 7. Return GO/CONDITIONAL/NO-GO per capability and update acceptance matrix without changing production contracts.
 
 This narrow stage removes the key architecture risks before investing in a large governance contract.
+
+## Stage 8 completion record (2026-10-14)
+
+Stage 8 completed the safe local compatibility work and stopped at the runtime boundary. The worktree began at `05ada7f14f96a3f248d5aa8d102c8b6fc29cf9c4`; Registry, Evaluator, CaseCourt, their histories, and ignored artifacts were preserved. Python regression was **232 passed, 4 skipped**. Frontend lint/typecheck/tests/build passed; the Stage 8 lifecycle and localnet preflight regressions were added and their final counts are recorded in `V2_STAGE_8_REPORT.md`. Cached GenVM check/schema validation passed for all three contracts, the isolated probe, and three caller test contracts using cached `v0.6.0-rc9`; validation warned that a newer runner hash exists and did not prove stable compatibility.
+
+The local read-only identity test reached only `127.0.0.1:4000` and failed with `WinError 10061`; the test did not deploy. One bounded public `eth_chainId` request returned `TypeError: fetch failed`. No service, contract deployment, signature, write, fee, real AI, consensus, rollback, or finality evidence was obtained. Cross-contract test infrastructure now fails closed unless the active GenLayer Test configuration is localnet on loopback and returns chain ID `61127` before any deployment.
+
+**Stage 8 gate:** local code/test readiness is **CONDITIONAL GO** for a separately approved isolated diagnostic. Stable production deployment remains **NO-GO** until runner and fee compatibility, an actual runtime probe, cross-contract behavior, native finality/rollback, and CaseCourt governance/liveness decisions are resolved. See the Stage 8 reports and the detailed six-state overlay in `V2_ACCEPTANCE_MATRIX.md`.

@@ -87,3 +87,13 @@ Do not collapse **accepted** into **finalized**. If a field is absent or status 
 
 The source is **prepared for manual inspection**, not proven browser-deployable. It has passed Direct Mode and cached GenVM lint. There has been no deployment, transaction, live AI call, real validator disagreement, rollback proof, finality observation, or fee measurement. This plan is a diagnostic only; CaseCourt production deployment remains **NO-GO** until stable runner/finality/cost gates are satisfied.
 
+## Stage 8 readiness update (2026-10-14)
+
+Installed toolchain versions, cached runner findings, read-only RPC results, and remaining evidence gaps are recorded in `V2_GENVM_COMPATIBILITY_MATRIX.md` and `V2_RUNTIME_INTEGRATION_RESULTS.md`. The local identity smoke test reached the default endpoint `http://127.0.0.1:4000/api` and got connection refused; the public read-only identity request had no response. No contract was deployed.
+
+### First user screenshot for any Studio follow-up
+
+Before wallet connection, the user should open `https://studio.genlayer.com`, expand the environment/network details, select only the stable **Studionet** environment if it explicitly shows chain ID `61999`, and provide a screenshot containing that environment label and chain ID together. Redact account/personal details. Do not include secrets or signing prompts. If the UI does not show both values, stop and report that; do not infer the network from the URL alone.
+
+The next deployment candidate, only after separate approval of the exact deployment fee, is the isolated `StudioRuntimeProbe` in `experiments/stage6/studio_runtime_probe.py`. Start with its read-only `get_probe_state()` call. Each subsequent transaction-context, AI/Equivalence, forced disagreement, or expected-failure write requires its own cost approval. The Registry, Evaluator, and CaseCourt are not first-probe candidates. Local cross-contract tests likewise remain disabled unless the active RPC is loopback localnet and a read-only preflight returns exactly `61127`.
+

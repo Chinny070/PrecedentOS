@@ -164,6 +164,15 @@ describe('GenLayerJS 1.1.8 wallet and transaction adapter', () => {
     expect(onUpdate).toHaveBeenCalledWith({ status: 'pending', detail: 'PENDING' });
   });
 
+  it('keeps unrecognized SDK lifecycle states unknown instead of labeling them as processing', async () => {
+    sdkClient.getTransaction.mockResolvedValue({ statusName: 'FUTURE_STATUS' });
+    const onUpdate = vi.fn();
+    const outcome = await trackTransactionLifecycle(sdkClient as unknown as GenLayerClient, hash, onUpdate, { attempts: 1 });
+    expect(onUpdate).toHaveBeenCalledWith({ status: 'unknown', detail: 'FUTURE_STATUS' });
+    expect(outcome.status).toBe('unknown');
+    expect(outcome.detail).toBe('No finalized result was observed after 1 status checks.');
+  });
+
   it('reports accepted as nonfinal and does not treat finalized-with-error as success', async () => {
     sdkClient.getTransaction.mockResolvedValueOnce({ statusName: 'ACCEPTED' }).mockResolvedValueOnce({ statusName: 'FINALIZED' });
     sdkClient.waitForTransactionReceipt.mockResolvedValue({ statusName: 'FINALIZED', txExecutionResultName: 'FINISHED_WITH_ERROR' });

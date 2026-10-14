@@ -183,4 +183,21 @@ Stage 5 code and limits are described in `V2_WEB_RENDER_IMPLEMENTATION.md`; sour
 
 Baseline commit `05fa708afa3d42ea17ba0408a107549963f6dc91` was verified locally. Protected Python baseline before Stage 7B was 220 passed / 2 skipped. New local code has not been run on a compatible live runner. The Stage 7B acceptance runs are recorded in `V2_STAGE_7B_REPORT.md`.
 
+# Stage 8 runtime verification addendum (2026-10-14)
+
+The Stage 8 installed toolchain, cached schema validation, RPC identity attempts, and exact evidence limits are recorded in `V2_GENVM_COMPATIBILITY_MATRIX.md`, `V2_RUNTIME_INTEGRATION_RESULTS.md`, and `V2_TRANSACTION_FINALITY_EVIDENCE.md`.
+
+| Capability | Stage 8 result | Evidence class |
+|---|---|---|
+| Contract Python syntax/schema for Registry, Evaluator, CaseCourt, StudioRuntimeProbe and three test-only cross-contract callers | All seven passed `genvm-lint check` against the already cached `v0.6.0-rc9` bundle; all report `I200` that a newer runner hash exists. | **LOCALLY TESTED / CACHED SCHEMA ONLY** |
+| Direct Mode, preflight, and fixture behavior | Full Python suite 232 passed, 4 skipped; Studio probe tests remain mocked and live deployment scenarios remain gated. | **LOCALLY TESTED** |
+| Local Studio RPC | `127.0.0.1:4000` refused the read-only `eth_chainId` request (`WinError 10061`); no local chain ID. | **BLOCKED** |
+| Public stable Studionet RPC | One bounded read-only request returned `TypeError: fetch failed`, no HTTP/JSON-RPC response. Prior user-reported identity is kept separate. | **BLOCKED in this execution environment** |
+| Cross-contract reads / authorization | Opt-in Registry, Evaluator, and CaseCourt caller tests prepared with loopback/localnet/61127 preflight before deployment; not executed. | **BLOCKED / NOT RUNTIME VERIFIED** |
+| Real AI and Equivalence Principle validators | No GenVM execution, model call, validator vote, or disagreement. | **BLOCKED** |
+| Native transaction finality and rollback | SDK API locally inspected and frontend branch tests mocked; no transaction/receipt/state readback. | **BLOCKED** |
+| Web Render | `WEB_RENDER_RUNTIME_ENABLED = False`; no renderer execution or egress security proof. | **BLOCKED / DISABLED** |
+
+No contract code was modified. No runtime service was started. No deployment, wallet signature, write transaction, or fee was incurred. Stage 9 deployment remains blocked by the prerequisites listed in `V2_STAGE_9_DEPLOYMENT_PREREQUISITES.md`.
+
 No deployment, RPC request, write transaction, wallet signature, or Web Render execution was performed. The four Stage 7B GenVM lint/validation commands passed against cached tooling; upstream runner resolution was blocked by `WinError 10013`, so cached success is not stable runner verification. Native transaction status/finality, validator disagreement/rollback, fee profile, redirect/DNS/private-destination handling, and runner compatibility remain **BLOCKED ON RUNTIME**. The manual Studio procedure remains a separately user-operated diagnostic; read-only review, deployment, write transaction, and fee decisions are distinct gates.

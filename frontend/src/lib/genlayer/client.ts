@@ -214,7 +214,11 @@ function statusUpdate(statusName: string | undefined): LifecycleUpdate['status']
   if (statusName === 'CANCELED') return 'failed';
   if (statusName === 'PENDING' || statusName === 'UNINITIALIZED') return 'pending';
   if (statusName === 'UNDETERMINED' || statusName === 'VALIDATORS_TIMEOUT' || statusName === 'LEADER_TIMEOUT') return 'unknown';
-  return 'processing';
+  if (statusName && [
+    'PROPOSING', 'COMMITTING', 'REVEALING', 'APPEAL_REVEALING',
+    'APPEAL_COMMITTING', 'READY_TO_FINALIZE',
+  ].includes(statusName)) return 'processing';
+  return 'unknown';
 }
 
 export async function trackTransactionLifecycle(

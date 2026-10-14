@@ -4,7 +4,7 @@ This matrix carries every feature in the Stage 0 product brief across contract, 
 
 ## Status legend
 
-Stage-specific evidence uses these explicit states: **IMPLEMENTED**, **LOCALLY TESTED**, **LIVE VERIFIED**, **BLOCKED**, and **NOT STARTED**. A single feature can have different states for source implementation, automated tests, runtime proof, and deployment.
+Stage-specific evidence uses these explicit states: **IMPLEMENTED**, **LOCALLY TESTED**, **RUNTIME VERIFIED**, **LIVE STUDIONET VERIFIED**, **BLOCKED**, and **NOT STARTED**. A feature may have different states for source, local tests, an actual GenLayer runtime, and live deployment. “RUNTIME VERIFIED” requires executed behavior on an identified GenLayer runtime; static lint and mocks do not qualify. “LIVE STUDIONET VERIFIED” requires real stable Studionet evidence with transaction/read IDs. A prior user-reported read-only identity response remains attributed to the user and is not a Stage 8 runtime result.
 
 - **Existing / local:** present in source and supported by local Direct Mode or frontend tests; not live proof.
 - **Implemented / Stage 1 local:** deterministic CaseCourt source exists and passed Direct Mode plus cached GenVM lint; not local Studio or live proof.
@@ -38,6 +38,33 @@ Stage-specific evidence uses these explicit states: **IMPLEMENTED**, **LOCALLY T
 | 18 | Complete frontend workflows | Web Evidence and freeze states have typed read interfaces; no production write adapter. | Web Evidence page communicates source approval, observation, freshness and freeze recovery without live claims. | Vitest cross-language vector tests and full frontend checks. | Live data lifecycle, wallet-authorized actions, accessibility, and finality-aware controls remain open. | **NOT STARTED** No live governance UI. |
 | 19 | Real Studionet deployment verification | Existing Registry/Evaluator and CaseCourt source exist; no deployed addresses. Official network docs specify RPC and chain 61999. | Existing wallet/network adapter; no CaseCourt write path. | Direct Mode and cached lint only. One PowerShell `eth_chainId` attempt failed locally before HTTP; prior user result `0xf22f` is user-observed. | Exact stable runner/toolchain and stable fee profile unresolved. | **—** No current RPC response or deployment. |
 | 20 | Submission-ready documentation and demonstration | Stage 3B judgment code/schema implemented locally; no runtime-verified authority/finality. | Fictional demo preserved; adjudication remains disabled. | Current counts in `V2_STAGE_3B_REPORT.md`; no live end-to-end demo. | Runtime, economic and legal-policy gates remain. | **—** No verified live deployment or demo. |
+
+## Stage 8 evidence overlay for the 20 original product requirements
+
+This overlay preserves the original twenty rows above while recording the distinct Stage 8 evidence classes requested for implementation, local tests, runtime, and live Studionet. “Mocked local test” is explicitly not runtime verification. `RUNTIME VERIFIED` and `LIVE STUDIONET VERIFIED` are empty for all twenty requirements in this stage.
+
+| # | Requirement | Implementation | Local test evidence | Runtime evidence | Live Studionet evidence |
+|---:|---|---|---|---|---|
+| 1 | Precedent registration and evidence commitments | IMPLEMENTED | LOCALLY TESTED | BLOCKED | NOT STARTED |
+| 2 | AI precedent evaluation | IMPLEMENTED | LOCALLY TESTED (LLM/validator mocked) | BLOCKED | NOT STARTED |
+| 3 | Case lifecycle and decision states | IMPLEMENTED | LOCALLY TESTED (Direct Mode) | BLOCKED | NOT STARTED |
+| 4 | Appeals and appeal eligibility | IMPLEMENTED | LOCALLY TESTED (Direct Mode) | BLOCKED | NOT STARTED |
+| 5 | Enforceable decision freezes | IMPLEMENTED | LOCALLY TESTED (Direct Mode) | BLOCKED | NOT STARTED |
+| 6 | AI-assisted appeal judgments | IMPLEMENTED | LOCALLY TESTED (LLM/validator mocked) | BLOCKED | NOT STARTED |
+| 7 | Genuine GenLayer Web Render retrieval | IMPLEMENTED behind `WEB_RENDER_RUNTIME_ENABLED = False` | LOCALLY TESTED with mocked retrieval | BLOCKED; security/runtime protections unproven | NOT STARTED |
+| 8 | Evidence locking, versioning, provenance | IMPLEMENTED | LOCALLY TESTED (Direct Mode/mocked retrieval and commitment vectors) | BLOCKED | NOT STARTED |
+| 9 | Contradiction challenges | IMPLEMENTED | LOCALLY TESTED (Direct Mode/mocked assessment) | BLOCKED | NOT STARTED |
+| 10 | Reversal and supersession | IMPLEMENTED | LOCALLY TESTED (Direct Mode) | BLOCKED | NOT STARTED |
+| 11 | Authority graph and lineage | IMPLEMENTED | LOCALLY TESTED (Direct Mode) | BLOCKED | NOT STARTED |
+| 12 | Multi-level appeals | IMPLEMENTED | LOCALLY TESTED (Direct Mode) | BLOCKED | NOT STARTED |
+| 13 | Deadlines and protocol case finality | Partial: bilateral application closure exists; appeal deadlines and a native-finality anchor are absent | LOCALLY TESTED for application closure only | BLOCKED for native finality; deadlines NOT STARTED | NOT STARTED |
+| 14 | Equivalence Principle and consensus-aware validation | IMPLEMENTED with decision-bearing field checks | LOCALLY TESTED (validator path mocked) | BLOCKED; no real validator consensus | NOT STARTED |
+| 15 | Counterfactual analysis | IMPLEMENTED as browser-only hypothetical UI | LOCALLY TESTED (frontend fixtures) | Not an on-chain runtime feature | Not intended as a live decision |
+| 16 | DAO and AI-agent integration | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED |
+| 17 | Security and abuse protections | IMPLEMENTED in bounded source paths; important runtime controls remain unresolved | LOCALLY TESTED (adversarial Direct Mode and frontend tests) | BLOCKED | NOT STARTED |
+| 18 | Complete frontend workflows | IMPLEMENTED as demo/read UI; governance writes remain disabled | LOCALLY TESTED (frontend suite) | BLOCKED for live provider/contract behavior | NOT STARTED |
+| 19 | Real Studionet deployment verification | Source and chain config implemented | LOCALLY TESTED (SDK source/type checks only) | BLOCKED; public RPC returned no response in this host | NOT STARTED |
+| 20 | Submission-ready documentation and demonstration | IMPLEMENTED as fictional demo/docs; runtime claims withheld | LOCALLY TESTED (automated suites) | BLOCKED for actual runtime demo | NOT STARTED |
 
 ## Stage 0 evidence snapshot
 
