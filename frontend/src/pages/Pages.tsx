@@ -11,7 +11,7 @@ import {
   validMetadataLabel, validRecordId, validateEvidencePacket,
 } from '../lib/commitments';
 import {
-  createReadClient, probeStudionetRpc, readEvaluation, readPrecedent,
+  assertEvaluationReadbackBinding, createReadClient, probeStudionetRpc, readEvaluation, readPrecedent,
   trackTransactionLifecycle, writeContractMethod,
 } from '../lib/genlayer/client';
 import type { Precedent, TransactionTrace } from '../types/domain';
@@ -169,6 +169,11 @@ export function ComparePage() {
     setEvaluationId(nextId); setBusy(true);
     try {
       const packet = makeEvaluationPacket(passageA, passageB);
+      const expectedInputCommitment = await evaluationInputCommitment({
+        evaluationId: nextId, recordAId: idA, recordADigest: digestA,
+        recordBId: idB, recordBDigest: digestB, evidenceSchemaVersion: 1,
+        criteriaVersion: 1, criteria,
+      });
       const hash = await writeContractMethod(wallet, addresses.evaluator, 'evaluate_pair', [nextId, idA, digestA, idB, digestB, packet, 1, 1, criteria]);
       const tx: TransactionTrace = { hash, action: `Compare ${idA} × ${idB}`, status: 'submitted', submittedAtLocal: new Date().toISOString() };
       saveTransaction(tx); setMessage(`Submitted ${hash}. Waiting for the actual transaction lifecycle; no result is assumed from submission.`);
@@ -178,7 +183,13 @@ export function ComparePage() {
         if (update.status === 'unknown') setMessage(`Transaction status is unresolved: ${update.detail}`);
         if (update.status === 'finalized') {
           void readEvaluation(wallet.client, addresses.evaluator, nextId)
-            .then((value) => { setResult(value); setMessage('Finalized and read back from the configured Evaluator. This does not establish legal correctness.'); })
+            .then((value) => {
+              assertEvaluationReadbackBinding(value, {
+                evaluationId: nextId, recordAId: idA, recordADigest: digestA,
+                recordBId: idB, recordBDigest: digestB, inputCommitment: expectedInputCommitment,
+              });
+              setResult(value); setMessage('Majority-agreed execution finalized and its bound result read back from the configured Evaluator. This does not establish legal correctness.');
+            })
             .catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Finalized evaluation readback failed.'));
         }
       });

@@ -156,6 +156,35 @@ export async function readEvaluation(client: GenLayerClient, address: string, ev
   return value as Record<string, string>;
 }
 
+export type EvaluationReadbackBinding = {
+  evaluationId: string;
+  recordAId: string;
+  recordADigest: string;
+  recordBId: string;
+  recordBDigest: string;
+  inputCommitment: string;
+};
+
+export function assertEvaluationReadbackBinding(
+  value: Record<string, string>,
+  expected: EvaluationReadbackBinding,
+): void {
+  const fields: Array<[keyof EvaluationReadbackBinding, string]> = [
+    ['evaluationId', 'evaluation_id'],
+    ['recordAId', 'record_a_id'],
+    ['recordADigest', 'record_a_digest'],
+    ['recordBId', 'record_b_id'],
+    ['recordBDigest', 'record_b_digest'],
+    ['inputCommitment', 'input_commitment'],
+  ];
+  for (const [expectedField, responseField] of fields) {
+    if (value[responseField] !== expected[expectedField]) {
+      throw new Error(`Evaluator readback binding mismatch for ${responseField}.`);
+    }
+  }
+  if (!validDigest(value.input_commitment)) throw new Error('Evaluator readback has an invalid input commitment.');
+}
+
 async function validateWrite(functionName: string, args: CalldataEncodable[]): Promise<void> {
   if (functionName === 'register_precedent') {
     if (args.length !== 6) throw new Error('register_precedent requires exactly six arguments.');
@@ -237,10 +266,15 @@ export async function trackTransactionLifecycle(
       const name = transaction.statusName;
       const mapped = name === 'FINALIZED' ? 'processing' : statusUpdate(name);
       if (name !== lastStatus) {
-        onUpdate({ status: mapped, detail: name === 'FINALIZED' ? 'FINALIZED observed; checking execution result.' : name ?? 'Transaction status was not provided by GenLayerJS.' });
+        onUpdate({ status: mapped, detail: name === 'FINALIZED' ? 'FINALIZED observed; checking consensus and execution results.' : name ?? 'Transaction status was not provided by GenLayerJS.' });
         lastStatus = name ?? '';
       }
       if (name === 'CANCELED') return { status: 'failed', detail: 'Transaction was canceled.' };
+      if (name === 'UNDETERMINED' || name === 'VALIDATORS_TIMEOUT' || name === 'LEADER_TIMEOUT') {
+        const result = { status: 'unknown' as const, detail: `Consensus ended without an accepted decision (${name}).` };
+        onUpdate(result);
+        return result;
+      }
       if (name === 'FINALIZED') {
         const { TransactionStatus, ExecutionResult } = await import('genlayer-js/types');
         const receipt = await client.waitForTransactionReceipt({ hash: hash as TransactionHash, status: TransactionStatus.FINALIZED, interval: 0, retries: 0 });
@@ -249,8 +283,20 @@ export async function trackTransactionLifecycle(
           onUpdate(result);
           return result;
         }
+        // GenLayerJS 1.1.8 exposes resultName on both getTransaction and the
+        // receipt. A leader's successful GenVM return is not accepted consensus.
+        // Require an explicit majority agreement in both reads before promoting
+        // the result to finalized success. Missing or disagreeing metadata fails
+        // closed because older/studio responses may not include this field.
+        if (transaction.resultName !== 'MAJORITY_AGREE' || receipt.resultName !== 'MAJORITY_AGREE') {
+          const result = transaction.resultName === undefined || receipt.resultName === undefined
+            ? { status: 'unknown' as const, detail: 'Finalized transaction is missing explicit majority-agreement evidence.' }
+            : { status: 'failed' as const, detail: `Transaction did not finalize with majority agreement (transaction=${transaction.resultName}, receipt=${receipt.resultName}).` };
+          onUpdate(result);
+          return result;
+        }
         if (receipt.txExecutionResultName === ExecutionResult.FINISHED_WITH_RETURN) {
-          const result = { status: 'finalized' as const, detail: receipt.txExecutionResultName, finalizedAtObserved: new Date().toISOString() };
+          const result = { status: 'finalized' as const, detail: `MAJORITY_AGREE · ${receipt.txExecutionResultName}`, finalizedAtObserved: new Date().toISOString() };
           onUpdate(result);
           return result;
         }

@@ -14,6 +14,7 @@ export interface CaseJudgmentObservation {
   record?: CaseCourtJudgment | null;
   result?: CaseCourtJudgmentResult;
   executionResult?: 'FINISHED_WITH_RETURN' | 'FINISHED_WITH_ERROR' | 'UNKNOWN';
+  consensusResult?: string;
   detail?: string;
   observedAt?: string;
 }
@@ -32,6 +33,7 @@ export interface CaseCourtAdjudicationAdapter {
 export function mayLabelJudgmentFinalized(observation: CaseJudgmentObservation): boolean {
   return observation.lifecycle === 'FINALIZED'
     && observation.executionResult === 'FINISHED_WITH_RETURN'
+    && observation.consensusResult === 'MAJORITY_AGREE'
     && Boolean(observation.record)
     && observation.record?.authority_status === 'CASE_COURT_EP_ACCEPTED_REQUIRES_FINALITY';
 }

@@ -20,7 +20,9 @@ describe('CaseCourt judgment finality presentation gate', () => {
   it('requires a successful finalized execution and the decoded record', () => {
     expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record, executionResult: 'UNKNOWN' })).toBe(false);
     expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record: null, executionResult: 'FINISHED_WITH_RETURN' })).toBe(false);
-    expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record, executionResult: 'FINISHED_WITH_ERROR' })).toBe(false);
-    expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record, executionResult: 'FINISHED_WITH_RETURN' })).toBe(true);
+    expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record, executionResult: 'FINISHED_WITH_RETURN', consensusResult: 'NO_MAJORITY' })).toBe(false);
+    expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record, executionResult: 'FINISHED_WITH_ERROR', consensusResult: 'MAJORITY_AGREE' })).toBe(false);
+    expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record, executionResult: 'FINISHED_WITH_RETURN' })).toBe(false);
+    expect(mayLabelJudgmentFinalized({ lifecycle: 'FINALIZED', record, executionResult: 'FINISHED_WITH_RETURN', consensusResult: 'MAJORITY_AGREE' })).toBe(true);
   });
 });

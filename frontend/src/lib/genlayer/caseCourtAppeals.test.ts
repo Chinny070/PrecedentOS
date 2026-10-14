@@ -14,7 +14,9 @@ describe('CaseCourt appellate Python/TypeScript commitment vectors', () => {
     const ruling = { authority_status: 'APPELLATE_EP_ACCEPTED_REQUIRES_FINALITY' } as const;
     expect(mayLabelAppellateRulingFinalized({ appealStatus: 'PENDING_RESOLUTION', transactionLifecycle: 'LOCALLY_SIMULATED', ruling })).toBe(false);
     expect(mayLabelAppellateRulingFinalized({ appealStatus: 'PENDING_RESOLUTION', transactionLifecycle: 'ACCEPTED_PROVISIONAL', executionResult: 'FINISHED_WITH_RETURN', ruling })).toBe(false);
-    expect(mayLabelAppellateRulingFinalized({ appealStatus: 'RESOLVED', transactionLifecycle: 'FINALIZED', executionResult: 'FINISHED_WITH_ERROR', ruling })).toBe(false);
-    expect(mayLabelAppellateRulingFinalized({ appealStatus: 'RESOLVED', transactionLifecycle: 'FINALIZED', executionResult: 'FINISHED_WITH_RETURN', ruling })).toBe(true);
+    expect(mayLabelAppellateRulingFinalized({ appealStatus: 'RESOLVED', transactionLifecycle: 'FINALIZED', executionResult: 'FINISHED_WITH_RETURN', consensusResult: 'NO_MAJORITY', ruling })).toBe(false);
+    expect(mayLabelAppellateRulingFinalized({ appealStatus: 'RESOLVED', transactionLifecycle: 'FINALIZED', executionResult: 'FINISHED_WITH_ERROR', consensusResult: 'MAJORITY_AGREE', ruling })).toBe(false);
+    expect(mayLabelAppellateRulingFinalized({ appealStatus: 'RESOLVED', transactionLifecycle: 'FINALIZED', executionResult: 'FINISHED_WITH_RETURN', ruling })).toBe(false);
+    expect(mayLabelAppellateRulingFinalized({ appealStatus: 'RESOLVED', transactionLifecycle: 'FINALIZED', executionResult: 'FINISHED_WITH_RETURN', consensusResult: 'MAJORITY_AGREE', ruling })).toBe(true);
   });
 });

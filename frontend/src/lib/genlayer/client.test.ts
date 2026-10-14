@@ -17,7 +17,7 @@ const sdkClient = {
 vi.mock('genlayer-js', () => ({ createClient: vi.fn(() => sdkClient) }));
 vi.mock('genlayer-js/chains', () => ({ studionet: { id: 61999, rpcUrls: { default: { http: ['https://studio.genlayer.com/api'] } } } }));
 
-const { assertWalletSessionCurrent, connectInjectedWallet, probeStudionetRpc, readPrecedent, trackTransactionLifecycle, watchWalletSession, writeContractMethod } = await import('./client');
+const { assertEvaluationReadbackBinding, assertWalletSessionCurrent, connectInjectedWallet, probeStudionetRpc, readPrecedent, trackTransactionLifecycle, watchWalletSession, writeContractMethod } = await import('./client');
 
 function providerFor(overrides: Record<string, unknown> = {}): InjectedProvider {
   return {
@@ -153,6 +153,20 @@ describe('GenLayerJS 1.1.8 wallet and transaction adapter', () => {
     expect(sdkClient.readContract).not.toHaveBeenCalled();
   });
 
+  it('requires evaluation readback to match the finalized submission binding', () => {
+    const expected = {
+      evaluationId: 'EVAL-TEST-001', recordAId: 'FICT-MUNI-001', recordADigest: 'a'.repeat(64),
+      recordBId: 'FICT-MUNI-002', recordBDigest: 'b'.repeat(64), inputCommitment: 'c'.repeat(64),
+    };
+    const response = {
+      evaluation_id: expected.evaluationId, record_a_id: expected.recordAId, record_a_digest: expected.recordADigest,
+      record_b_id: expected.recordBId, record_b_digest: expected.recordBDigest, input_commitment: expected.inputCommitment,
+    };
+    expect(() => assertEvaluationReadbackBinding(response, expected)).not.toThrow();
+    expect(() => assertEvaluationReadbackBinding({ ...response, evaluation_id: 'OTHER-EVALUATION' }, expected)).toThrow('binding mismatch');
+    expect(() => assertEvaluationReadbackBinding({ ...response, input_commitment: 'bad' }, expected)).toThrow('binding mismatch');
+  });
+
   it('returns unknown on RPC errors and bounded polling timeouts', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network unavailable')));
     await expect(probeStudionetRpc('https://studio.genlayer.com/api')).rejects.toThrow('network unavailable');
@@ -174,8 +188,8 @@ describe('GenLayerJS 1.1.8 wallet and transaction adapter', () => {
   });
 
   it('reports accepted as nonfinal and does not treat finalized-with-error as success', async () => {
-    sdkClient.getTransaction.mockResolvedValueOnce({ statusName: 'ACCEPTED' }).mockResolvedValueOnce({ statusName: 'FINALIZED' });
-    sdkClient.waitForTransactionReceipt.mockResolvedValue({ statusName: 'FINALIZED', txExecutionResultName: 'FINISHED_WITH_ERROR' });
+    sdkClient.getTransaction.mockResolvedValueOnce({ statusName: 'ACCEPTED', resultName: 'MAJORITY_AGREE' }).mockResolvedValueOnce({ statusName: 'FINALIZED', resultName: 'MAJORITY_AGREE' });
+    sdkClient.waitForTransactionReceipt.mockResolvedValue({ statusName: 'FINALIZED', resultName: 'MAJORITY_AGREE', txExecutionResultName: 'FINISHED_WITH_ERROR' });
     const updates: string[] = [];
     const outcome = await trackTransactionLifecycle(sdkClient as unknown as GenLayerClient, hash, (update) => updates.push(update.status), { attempts: 3, intervalMs: 0, sleep: async () => undefined });
     expect(updates).toContain('accepted');
@@ -184,11 +198,42 @@ describe('GenLayerJS 1.1.8 wallet and transaction adapter', () => {
   });
 
   it('reports finality only when the SDK receipt is FINALIZED with FINISHED_WITH_RETURN', async () => {
-    sdkClient.getTransaction.mockResolvedValue({ statusName: 'FINALIZED' });
-    sdkClient.waitForTransactionReceipt.mockResolvedValue({ statusName: 'FINALIZED', txExecutionResultName: 'FINISHED_WITH_RETURN' });
+    sdkClient.getTransaction.mockResolvedValue({ statusName: 'FINALIZED', resultName: 'MAJORITY_AGREE' });
+    sdkClient.waitForTransactionReceipt.mockResolvedValue({ statusName: 'FINALIZED', resultName: 'MAJORITY_AGREE', txExecutionResultName: 'FINISHED_WITH_RETURN' });
     const outcome = await trackTransactionLifecycle(sdkClient as unknown as GenLayerClient, hash, undefined, { attempts: 1 });
     expect(outcome.status).toBe('finalized');
+    expect(outcome.detail).toContain('MAJORITY_AGREE');
     expect(outcome.finalizedAtObserved).toBeTruthy();
+  });
+
+  it('never reports a finalized leader return as successful without majority agreement', async () => {
+    sdkClient.getTransaction.mockResolvedValue({ statusName: 'FINALIZED', resultName: 'NO_MAJORITY' });
+    sdkClient.waitForTransactionReceipt.mockResolvedValue({ statusName: 'FINALIZED', resultName: 'NO_MAJORITY', txExecutionResultName: 'FINISHED_WITH_RETURN' });
+    const updates: string[] = [];
+    const outcome = await trackTransactionLifecycle(sdkClient as unknown as GenLayerClient, hash, (update) => updates.push(update.status), { attempts: 1 });
+    expect(outcome.status).toBe('failed');
+    expect(outcome.detail).toContain('NO_MAJORITY');
+    expect(updates).not.toContain('finalized');
+  });
+
+  it('keeps finalized responses with missing consensus evidence unknown', async () => {
+    sdkClient.getTransaction.mockResolvedValue({ statusName: 'FINALIZED' });
+    sdkClient.waitForTransactionReceipt.mockResolvedValue({ statusName: 'FINALIZED', txExecutionResultName: 'FINISHED_WITH_RETURN' });
+    const updates: string[] = [];
+    const outcome = await trackTransactionLifecycle(sdkClient as unknown as GenLayerClient, hash, (update) => updates.push(update.status), { attempts: 1 });
+    expect(outcome.status).toBe('unknown');
+    expect(outcome.detail).toContain('missing explicit majority-agreement evidence');
+    expect(updates).toContain('unknown');
+    expect(updates).not.toContain('finalized');
+  });
+
+  it('stops on an Undetermined consensus state instead of polling or claiming success', async () => {
+    sdkClient.getTransaction.mockResolvedValue({ statusName: 'UNDETERMINED', resultName: 'NO_MAJORITY', txExecutionResultName: 'FINISHED_WITH_RETURN' });
+    const outcome = await trackTransactionLifecycle(sdkClient as unknown as GenLayerClient, hash, undefined, { attempts: 5, intervalMs: 0, sleep: async () => undefined });
+    expect(outcome.status).toBe('unknown');
+    expect(outcome.detail).toContain('without an accepted decision');
+    expect(sdkClient.getTransaction).toHaveBeenCalledTimes(1);
+    expect(sdkClient.waitForTransactionReceipt).not.toHaveBeenCalled();
   });
 
   it('keeps finalized receipts with NOT_VOTED execution unknown and visible in the UI trace', async () => {

@@ -142,6 +142,7 @@ export type CaseCourtAppealObservation = {
   transactionHash?: `0x${string}`;
   ruling?: Pick<CaseCourtAppellateRuling, 'authority_status'> | null;
   executionResult?: 'FINISHED_WITH_RETURN' | 'FINISHED_WITH_ERROR' | 'UNKNOWN';
+  consensusResult?: string;
   detail?: string;
 };
 
@@ -149,5 +150,6 @@ export type CaseCourtAppealObservation = {
 export function mayLabelAppellateRulingFinalized(observation: CaseCourtAppealObservation): boolean {
   return observation.transactionLifecycle === 'FINALIZED'
     && observation.executionResult === 'FINISHED_WITH_RETURN'
+    && observation.consensusResult === 'MAJORITY_AGREE'
     && observation.ruling?.authority_status === 'APPELLATE_EP_ACCEPTED_REQUIRES_FINALITY';
 }
