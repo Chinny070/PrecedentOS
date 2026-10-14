@@ -318,6 +318,51 @@ def test_only_appellant_adds_appeal_evidence_and_only_appellate_resolution_unfre
     assert after == snap
 
 
+def test_appellant_and_nonparty_cannot_self_appoint_as_appeal_reviewer(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
+    """The opposing named party is the prototype reviewer; this is not independent review."""
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    grounds, _ = _file_appeal(contract, direct_vm, direct_bob, case_id)
+    direct_vm.sender = direct_bob
+    contract.lock_appeal_evidence(
+        case_id, "AP-LEVEL1", int(contract.get_case(case_id)["version"]), "AP-REVIEWER-TEST-LOCK"
+    )
+
+    before = (contract.get_case(case_id), contract.get_appeal("AP-LEVEL1"))
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("appellant cannot review own appeal"):
+        contract.begin_appeal_review(
+            case_id, "AP-LEVEL1", int(before[0]["version"]), "AP-SELF-REVIEW-BEGIN"
+        )
+    direct_vm.sender = direct_charlie
+    with direct_vm.expect_revert("caller is not a case participant"):
+        contract.begin_appeal_review(
+            case_id, "AP-LEVEL1", int(before[0]["version"]), "AP-OUTSIDER-REVIEW-BEGIN"
+        )
+    assert (contract.get_case(case_id), contract.get_appeal("AP-LEVEL1")) == before
+
+    # The named opponent can begin the explicitly non-independent prototype review.
+    direct_vm.sender = direct_alice
+    contract.begin_appeal_review(
+        case_id, "AP-LEVEL1", int(contract.get_case(case_id)["version"]), "AP-OPPONENT-REVIEW-BEGIN"
+    )
+    before_adjudication = (contract.get_case(case_id), contract.get_appeal("AP-LEVEL1"))
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("appellant cannot review own appeal"):
+        contract.adjudicate_appeal(
+            case_id, "AP-LEVEL1", int(before_adjudication[0]["version"]),
+            "AP-SELF-REVIEW-ADJUDICATE", grounds, "{}",
+        )
+    direct_vm.sender = direct_charlie
+    with direct_vm.expect_revert("caller is not a case participant"):
+        contract.adjudicate_appeal(
+            case_id, "AP-LEVEL1", int(before_adjudication[0]["version"]),
+            "AP-OUTSIDER-REVIEW-ADJUDICATE", grounds, "{}",
+        )
+    assert (contract.get_case(case_id), contract.get_appeal("AP-LEVEL1")) == before_adjudication
+    assert contract.get_appellate_ruling("AP-LEVEL1") == {}
+
+
 def test_nonparticipant_cannot_file_appeal(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = _deploy(direct_deploy)
     case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)

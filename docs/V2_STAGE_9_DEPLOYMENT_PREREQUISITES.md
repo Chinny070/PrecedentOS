@@ -73,3 +73,9 @@ python scripts/run_tests_safe.py -- tests/integration/test_registry_cross_contra
 ```
 
 These flags perform cost-bearing transactions on a real local runtime if enabled; do not set them without separate approval. All three paths perform the `localnet`/loopback/`61127` identity check before deploying. In this Stage 8 run the read-only local test observed connection refusal at `127.0.0.1:4000`; all deployment-enabled commands were left disabled.
+
+## Stage 9 deployment state update — 2026-10-14
+
+The earlier ordering above predates the user's Studio deployments. Registry and hardened Evaluator are now reported by the user at `0xd19FfF91FaB33932A70CB9e2927159a8F103945C` and `0x5DEeD1A620e9ecd70b1Ae4e6f0F130CF9D272666`; user-supplied transactions and readbacks are recorded in `V2_DEPLOYMENT_MANIFEST.md`. Do not redeploy them for CaseCourt work. Their source/bytecode and transactions were not independently fetched.
+
+CaseCourt remains undeployed. The readiness review permits only a user-controlled fictional deterministic Phase A smoke test after checking Studio's stable Studionet `61999` selection, source/schema acceptance, and displayed cost. The source SHA-256, zero-argument constructor, exact `open_case`/evidence/lock/stale-version inputs, expected readbacks, and negative-result interpretation are in `V2_CASECOURT_READINESS.md`. AI adjudication requires separate fee approval. Do not file an appeal: the current opposing-party reviewer is not independent, and a failed or stuck appeal can freeze a case indefinitely. Production governance remains NO-GO until the reviewer and recovery policies are approved and reflected in tested source. Web Render remains disabled.

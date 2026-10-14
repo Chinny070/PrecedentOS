@@ -101,9 +101,9 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 - Post-call user-supplied readbacks: `has_evaluation("EVAL-STUDIONET-REJECT-001")` → `false`; `get_evaluation_count()` → `1`, unchanged from before the call.
 - Result: **deterministic input-validation rejection and unchanged state reported by user**. It is not a successful evaluation, does not exercise validator disagreement, and is not an independently retrieved receipt. The transaction's `0 GEN` value is not a fee measurement.
 
-### Next positive Evaluator test — matching fictional precedents
+### Matching fictional evaluation — completed, user-reported
 
-Use the fixture `matching` from `tests/fixtures/fictional_evaluations.json` on the hardened deployment. This avoids the ambiguous conflict case that produced Undetermined. It remains a cost-bearing AI call; check the Studio fee before submitting.
+This was submitted on the hardened deployment to avoid the ambiguous conflict case that previously produced Undetermined. The call details and persisted readbacks above are user-reported; they are not independent retrieval. The inputs below match fixture `matching` from `tests/fixtures/fictional_evaluations.json`.
 
 - `evaluation_id`: `EVAL-STUDIONET-MATCH-001`
 - `record_a_id`: `FICT-NOISE-0001`
@@ -119,6 +119,12 @@ Use the fixture `matching` from `tests/fixtures/fictional_evaluations.json` on t
 
 ## CaseCourt
 
-- Status: **not approved for deployment**
-- Address: **none supplied**
-- Blocking policy/runtime gates: independent reviewer authority and conflict rules; appeal freeze liveness and safe recovery after failed/undetermined review; authorization boundaries; native transaction finality versus protocol case state; end-to-end rollback/readback evidence. `WEB_RENDER_RUNTIME_ENABLED` remains false.
+- Status: **no deployment reported; conditional GO only for a user-controlled fictional deterministic Phase A smoke test; NO-GO for production governance and appeals**
+- Exact source: `contracts/case_court.py`
+- Source SHA-256 at review: `e9f4d73fe243eabd1e18decf2c16abbfa742ee692f04933ca578bf28d4f395de`
+- Constructor arguments: **none**. Cached schema validation reports 50 public methods (28 writes, 22 views); the runner/header and cached-lint limitation are documented in `V2_CASECOURT_READINESS.md`.
+- Network target: stable Studionet `61999`; no CaseCourt address, deployment transaction, fee quote, or runtime result has been supplied.
+- First proposed functional write is fictional `open_case`; exact arguments and subsequent evidence-lock/stale-version readbacks are in `V2_CASECOURT_READINESS.md`. Do not submit the AI judgment without separate fee approval.
+- Required test signers: two controlled, distinct wallet addresses (petitioner and respondent); never share keys or seed phrases. A second identity does not establish legal identity or independent reviewer qualifications.
+- Production governance blocker: appeal review is performed by the opposing case party, not an independent reviewer. There is no approved reviewer-selection/conflict policy, and appeal freezes can persist indefinitely after failure/disagreement/unavailability. Do not execute Phase C pending policy approval.
+- `WEB_RENDER_RUNTIME_ENABLED` remains false.
