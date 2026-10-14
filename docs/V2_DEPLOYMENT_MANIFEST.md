@@ -90,7 +90,8 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 - Reported result: **FINALIZED; consensus Accepted; GenVM SUCCESS/Return; rotation count 0; initial validators 5; return `null`**.
 - Method and inputs match `evaluate_pair` for `EVAL-STUDIONET-MATCH-001` recorded above.
 - Explorer-rendered Equivalence output reports `classification=material_similarity`, `same_material_issue=true`, `evidence_sufficient=true`, `outcomes_differ=false`, `material_similarity=true`, `potential_contradiction=false`, empty differences/contradictions, and four similarity findings. This is a user-reported accepted positive AI/Equivalence result, not a legal correctness claim.
-- Required readback: `get_evaluation("EVAL-STUDIONET-MATCH-001")`, `has_evaluation(...)`, and `get_evaluation_count()`. Do not mark persisted evaluation verified until the returned fields and commitment match the request.
+- User-supplied `get_evaluation("EVAL-STUDIONET-MATCH-001")` readback returns the matching evaluation ID, `material_similarity`, `evidence_sufficient=true`, the expected decision fields, schema and criteria versions `1`, both submitted record IDs/digests, and input commitment `b32b5d2e0e9089a4685c0e30bce0b75779583b4f19d83a9967d5797f6ca37635`. This confirms persisted record content as reported by the user; the readback is not independently retrieved, and chain identity for this call remains unshown.
+- `has_evaluation(...)` and `get_evaluation_count()` have not yet been supplied for this deployed instance.
 
 ### Next positive Evaluator test — matching fictional precedents
 
