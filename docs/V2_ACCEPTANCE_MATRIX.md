@@ -222,3 +222,8 @@ This addendum supersedes earlier statements that no Registry production call or 
 | Stable Studionet identity | User confirms Studio selector showed stable Studionet, chain ID `61999` during the follow-up reads; original transaction details did not show chain ID. | **USER-CONFIRMED NETWORK; independent RPC/receipt unavailable** |
 | Registry negative/rejection invariants | Duplicate/invalid write and post-rejection state readback not supplied. | **PENDING** |
 | Registry deployed source/fee provenance | Deployment tx, source/bytecode match, and fee not supplied. | **PENDING** |
+
+| Capability | Evidence | Status |
+|---|---|---|
+| Evaluator deployment | User-provided Studio Explorer screenshot shows address `0x6c1571C445D12ECeD90CAddE677bD0ee9694487D`; deployment status shown as `ACCEPTED`, consensus Accepted, GenVM SUCCESS; hash is abbreviated. | **DEPLOYMENT REPORTED; FINALITY PENDING** |
+| Evaluator AI/Equivalence behavior | No evaluation transaction or result supplied. | **NOT YET TESTED** |

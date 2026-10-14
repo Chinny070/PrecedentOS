@@ -66,8 +66,11 @@ The digest is the SHA-256 of the fictional UTF-8 text previously supplied for th
 
 ## PrecedentEvaluator
 
-- Status: **not reported deployed**
-- Address: **none supplied**
+- Status: **deployment shown in user-provided Studio Explorer screenshot; transaction row currently says `ACCEPTED`, so finality is pending**
+- Address shown: `0x6c1571C445D12ECeD90CAddE677bD0ee9694487D`
+- Deployment transaction shown in abbreviated form only: `0x028b4d3a...2f1f8a96`; full hash not supplied
+- Screenshot reports deployment method `constructor`, GenVM `SUCCESS`, consensus `Accepted`; it does not show a `FINALIZED` status or the chain ID.
+- Source/bytecode equivalence to `contracts/precedent_evaluator.py`: **not independently verified**
 - Required next proof: one fictional positive AI/Equivalence evaluation; negative classification/insufficient-evidence or malformed input behavior; finalized + accepted + successful execution; and exact persisted readback. Do not treat caller-supplied precedent IDs as verified Registry references.
 
 ## CaseCourt
