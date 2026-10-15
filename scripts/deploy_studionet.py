@@ -186,17 +186,42 @@ def deploy_one(entry: dict, manifest: dict) -> None:
     print(f"Waiting for finalization of {tx_hash} ...")
     receipt = run_cli(["receipt", tx_hash, "--status", "FINALIZED", "--retries", "60", "--interval", "5000"])
     receipt_text = receipt.stdout + receipt.stderr
-    if "FINALIZED" not in receipt_text:
+    manifest["contracts"][key]["raw_receipt_stdout"] = receipt.stdout
+    save_manifest(manifest)
+
+    # The CLI prints the raw JS console.log of the receipt object, not JSON, with
+    # numeric protocol-level status/result codes (not the SDK's string enums).
+    # These mappings are from the pinned genlayer-js's own decoder table
+    # (frontend/node_modules/genlayer-js/dist/chunk-EY35NPSE.js) and must stay in
+    # sync with it. A loose "ERROR"/"Rollback" text search false-positives on
+    # harmless fields like `error_code: null`, so decode the actual codes instead.
+    STATUS_FINALIZED = "7"
+    RESULT_MAJORITY_AGREE = "6"
+    status_match = re.search(r"^\s*status:\s*(\d+),?\s*$", receipt_text, re.MULTILINE)
+    result_match = re.search(r"^\s*result:\s*(\d+),?\s*$", receipt_text, re.MULTILINE)
+    execution_match = re.search(r"execution_result:\s*'([A-Z_]+)'", receipt_text)
+    if not status_match or status_match.group(1) != STATUS_FINALIZED:
         manifest["contracts"][key]["status"] = "receipt_unconfirmed"
         save_manifest(manifest)
         raise RuntimeError(
-            f"{entry['name']} deployment transaction {tx_hash} did not confirm FINALIZED in the receipt output. "
+            f"{entry['name']} deployment transaction {tx_hash} did not confirm numeric status {STATUS_FINALIZED} "
+            f"(FINALIZED) in the receipt output (parsed: {status_match.group(1) if status_match else 'none'}). "
             "Do not treat this as a successful deployment. Investigate the hash on Explorer before resuming."
         )
-    if re.search(r"result.*ERROR|Rollback", receipt_text, re.IGNORECASE):
+    if not result_match or result_match.group(1) != RESULT_MAJORITY_AGREE:
         manifest["contracts"][key]["status"] = "failed"
         save_manifest(manifest)
-        raise RuntimeError(f"{entry['name']} deployment transaction {tx_hash} finalized but reported an error/rollback.")
+        raise RuntimeError(
+            f"{entry['name']} transaction {tx_hash} finalized but did not report numeric result {RESULT_MAJORITY_AGREE} "
+            f"(MAJORITY_AGREE) (parsed: {result_match.group(1) if result_match else 'none'})."
+        )
+    if not execution_match or execution_match.group(1) != "SUCCESS":
+        manifest["contracts"][key]["status"] = "failed"
+        save_manifest(manifest)
+        raise RuntimeError(
+            f"{entry['name']} transaction {tx_hash} reached MAJORITY_AGREE but the leader's own execution_result "
+            f"was not SUCCESS (parsed: {execution_match.group(1) if execution_match else 'none'})."
+        )
 
     if not address:
         manifest["contracts"][key]["status"] = "finalized_address_unconfirmed"

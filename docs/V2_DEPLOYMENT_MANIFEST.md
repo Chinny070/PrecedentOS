@@ -138,3 +138,23 @@ This was submitted on the hardened deployment to avoid the ambiguous conflict ca
 - First `open_case` attempt: `0x207235f337d864fef04ea26e7b073447f1e324c75039b5ef559f5b21e9080793`, to the address above. Explorer reports FINALIZED and consensus Accepted, but GenVM ERROR / Contract Error: `AttributeError: 'int' object has no attribute 'as_hex'`. It is a failed execution, not a successful case creation. User readback after the call: `get_case_count()` → `0`.
 - The respondent input was the user's valid second-wallet address `0x1Af111b06E6f6A05Bd41572A016318f1356aF85c`; Studio decoded it as an integer. The public parameter in the source was typed `Address`, and the method accessed `.as_hex` directly. The corrected source now accepts a validated hex string and converts it to `Address` at the boundary. See `V2_CASECOURT_READINESS.md` for its SHA-256 and test evidence.
 - The current deployed address still runs the prior source and cannot be upgraded by editing. Do not retry `open_case` there. A fresh deployment of the corrected source is required; no new deployment or transaction has been performed by Codex. All transaction/deployment evidence here is user supplied, not independently retrieved.
+
+## Coordinated CLI release — 2026-10-15
+
+All three contracts above were previously deployed one at a time through GenLayer Studio, with evidence transcribed from screenshots. This release instead used the local GenLayer CLI (v0.39.2, `scripts/deploy_studionet.py`), targeting the already-active `studionet` network (chain `61999`), signed by the existing, previously used wallet `my-studionet-wallet` (`0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b`, balance 214.9 GEN before this run). The prior addresses above remain live and historical; the frontend now points at the addresses below.
+
+Every deployment transaction was independently decoded with the pinned GenLayer SDK's own numeric status/result tables (`status=7` FINALIZED, `result=6` MAJORITY_AGREE, leader `execution_result='SUCCESS'`), not a loose text search, after an earlier version of the deploy script's naive `"ERROR"` substring check produced a false positive on the harmless `error_code: null` field for the Registry deployment; this was caught and fixed before the Evaluator/CaseCourt deploys, and the Registry result was independently re-verified against the correct decoded fields.
+
+| Contract | Address | Deployment tx | Source SHA-256 |
+|---|---|---|---|
+| PrecedentRegistry | `0xbEbfe1087C3395316feCCa1AE7E1Ba48CcCbAF8D` | `0x3c972b8fc51b292c7a186544cb5fd5e3df28c650039d968f52d31cf6577c7280` | `b9905ab567139ab4428960807293a95969908d052ffe794146ff9ab75fb69b6f` |
+| PrecedentEvaluator | `0xA712Cdad9834fCBe63f64013e61d8d089f34D6EC` | `0xbfc3bc77a2ca3a8999790215cdcd28b552d8ca313b201e2ee7ec77924e68f358` | `167d9710de4a602fea6f123a0187c61514e4e7e6b0323363d70e169a14441a9f` |
+| CaseCourt | `0xE084a96fbF8B42c7A9885fFABBa3b6C4076772C8` | `0x3b80293d146fc265fee2ac5e26fb4b062dd6cb1b7cf60700fe0613ef03c43809` | `fd6b43bb643daab20953edc2e42b5495ae648704fe564e9834f3830a33c01e8d` |
+
+All three were FINALIZED with MAJORITY_AGREE and a successful leader execution. Source identity was independently verified, not merely assumed from a successful deploy command: `genlayer code <address>` was fetched for every contract and diffed line-for-line against the exact local reviewed file; all three are byte-identical.
+
+Read-only post-deploy smoke tests: `get_registration_count()` → `0`, `get_evaluation_count()` → `0`, `get_case_count()` → `0`, consistent with fresh deployments with no prior state.
+
+Fee cost: `genlayer account` reported the identical balance (`214.945289999999999977 GEN`) before and after this three-contract deployment batch. This is reported exactly as observed; it is not independently explained here (it may reflect a Studio fee-accounting model not deducted from this balance view, or a display that does not refresh fee burn), and should not be read as proof that deployment was free. The installed CLI's `genlayer estimate-fees` could not produce a prior estimate (`client.estimateTransactionFees is not a function`).
+
+Full raw deployment/receipt output and manifest: `docs/V2_DEPLOYMENT_MANIFEST_STUDIONET_RUN.json` (git-tracked). `frontend/.env` (local, gitignored) was generated with these three addresses by the deploy script.
