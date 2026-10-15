@@ -246,3 +246,74 @@ describe('GenLayerJS 1.1.8 wallet and transaction adapter', () => {
     expect(updates).not.toContain('finalized');
   });
 });
+
+describe('CaseCourt write argument validation and type preservation', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    sdkClient.writeContract.mockResolvedValue(hash);
+  });
+
+  const caseCourtAddress = `0x${'d'.repeat(40)}`;
+  const openCaseArgs = () => ['FICT-CASE-001', 'ACT-OPEN', `0x${'b'.repeat(40)}`, 'Fictional Permit Dispute', 1, 'a'.repeat(64)];
+  const packet = JSON.stringify({ evidence: [{ evidence_id: 'EV-1', text: 'fictional text' }] });
+  const adjudicateArgs = () => ['FICT-CASE-001', 4, 'ACT-ADJ', 'JUDG-1', packet];
+
+  it('accepts a valid open_case call and preserves the respondent as a plain string argument', async () => {
+    const result = await writeContractMethod(session(), caseCourtAddress, 'open_case', openCaseArgs());
+    expect(result).toBe(hash);
+    const sentArgs = sdkClient.writeContract.mock.calls[0][0].args;
+    // Regression guard: the GenLayer CLI's own --args parser silently coerces
+    // any 0x-prefixed 40-hex-character string into a structured Address
+    // calldata value (confirmed against a real deployment, see
+    // docs/V2_DEPLOYMENT_MANIFEST.md). The frontend must never do this for a
+    // str-typed contract parameter: the respondent argument has to stay a
+    // plain JS string all the way into genlayer-js's own encoder.
+    expect(typeof sentArgs[2]).toBe('string');
+    expect(sentArgs[2]).toBe(`0x${'b'.repeat(40)}`);
+  });
+
+  it('rejects an open_case call with an invalid respondent address', async () => {
+    const args = openCaseArgs(); args[2] = 'not-an-address';
+    await expect(writeContractMethod(session(), caseCourtAddress, 'open_case', args)).rejects.toThrow('respondent address');
+  });
+
+  it('rejects an open_case call with an unsupported policy version', async () => {
+    const args = openCaseArgs(); args[4] = 2;
+    await expect(writeContractMethod(session(), caseCourtAddress, 'open_case', args)).rejects.toThrow('policy version');
+  });
+
+  it('accepts adjudicate_case and preserves the JSON evidence packet as a plain string argument, never a parsed object', async () => {
+    const result = await writeContractMethod(session(), caseCourtAddress, 'adjudicate_case', adjudicateArgs());
+    expect(result).toBe(hash);
+    const sentArgs = sdkClient.writeContract.mock.calls[0][0].args;
+    // Same regression class as above: the CLI's own parser also coerces any
+    // JSON-object-shaped string into a structured dict calldata value. The
+    // frontend path must keep evidence_packet_json a plain string.
+    expect(typeof sentArgs[4]).toBe('string');
+    expect(sentArgs[4]).toBe(packet);
+  });
+
+  it('rejects adjudicate_case with a malformed evidence packet', async () => {
+    const args = adjudicateArgs(); args[4] = 'not-json';
+    await expect(writeContractMethod(session(), caseCourtAddress, 'adjudicate_case', args)).rejects.toThrow('valid JSON');
+  });
+
+  it('rejects propose_appeal_reviewer with an invalid reviewer address', async () => {
+    await expect(writeContractMethod(
+      session(), caseCourtAddress, 'propose_appeal_reviewer',
+      ['FICT-CASE-001', 'AP-1', 4, 'ACT-RV', 'not-an-address'],
+    )).rejects.toThrow('reviewer address');
+  });
+
+  it('rejects register_web_source with a non-HTTPS URL', async () => {
+    await expect(writeContractMethod(
+      session(), caseCourtAddress, 'register_web_source',
+      ['FICT-CASE-001', 1, 'ACT-WS', 'SOURCE-1', 'http://insecure.example/page', 'EV-1', 'CASE', ''],
+    )).rejects.toThrow('HTTPS');
+  });
+
+  it('rejects an unsupported CaseCourt write method name', async () => {
+    await expect(writeContractMethod(session(), caseCourtAddress, 'not_a_real_method', [])).rejects.toThrow('Unsupported PrecedentOS write method');
+  });
+});

@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icons';
 import { StatusTag } from '../components/StatusTag';
+import { useApp } from '../state/AppContext';
+import { TARGET_CHAIN_ID } from '../config/chain';
 
 export function Landing() {
+  const { wallet } = useApp();
+  const onCorrectChain = wallet?.chainId === TARGET_CHAIN_ID;
   return <main className="landing">
-    <header className="landing-nav"><a className="brand brand--dark" href="/"><span className="brand-mark">P<span>O</span></span><span className="brand-word">PRECEDENT<span>OS</span></span></a><div className="landing-nav-right"><StatusTag tone="warn">STUDIONET · NOT CONNECTED</StatusTag><Link to="/lab" className="landing-enter">ENTER THE LAB <Icon name="arrow" size={16}/></Link></div></header>
+    <header className="landing-nav"><a className="brand brand--dark" href="/"><span className="brand-mark">P<span>O</span></span><span className="brand-word">PRECEDENT<span>OS</span></span></a><div className="landing-nav-right"><StatusTag tone={wallet ? (onCorrectChain ? 'good' : 'bad') : 'warn'}>{wallet ? `STUDIONET · ${onCorrectChain ? 'CONNECTED' : 'WRONG NETWORK'}` : 'STUDIONET · NOT CONNECTED'}</StatusTag><Link to="/lab" className="landing-enter">ENTER THE LAB <Icon name="arrow" size={16}/></Link></div></header>
     <div className="landing-grid">
       <section className="hero-copy">
         <div className="eyebrow"><span className="eyebrow-line"/> A PRECEDENT-AWARE RESEARCH PROTOCOL <span className="eyebrow-index">[ 01 — 04 ]</span></div>

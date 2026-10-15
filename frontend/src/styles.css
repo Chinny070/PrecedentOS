@@ -57,6 +57,8 @@ button:disabled { opacity: .46; cursor: not-allowed; }
 .eyebrow-index { margin-left: auto; color: #868273; }
 .data-note { display: flex; align-items: center; gap: 10px; border: 1px solid #b7b3a4; background: #e8e4d3; color: #423f34; padding: 10px 12px; font-size: 9px; line-height: 1.55; margin: 24px 0; }
 .data-note-icon { display: grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px; color: var(--void-ink); background: var(--acid-citron); font-size: 11px; font-weight: 700; }
+.data-note--warn { border-color: var(--molten-coral); background: #ffe9e4; color: #5a2017; }
+.data-note--warn .data-note-icon { background: var(--molten-coral); color: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 /* Landing poster */
@@ -430,6 +432,22 @@ button:disabled { opacity: .46; cursor: not-allowed; }
 .settings-card .detail-caution { margin: 0; }
 .settings-card > p:not(.rpc-status):not(.detail-caution):not(.inline-message):not(.form-blocker) { color: #666254; font-size: 10px; line-height: 1.55; }
 .settings-card .full-label input { margin-top: 3px; font-family: var(--mono); }
+/* CaseCourtPage reuses .settings-card as a generic boxed section outside its
+   original .settings-grid context. flex-start alignment otherwise leaves
+   nested forms/rows sized to content, which can overflow the viewport on
+   narrow screens once a grid child's content (long placeholder, button
+   label) exceeds its column's available width. */
+.settings-card > form, .settings-card > .form-row, .settings-card .full-label, .settings-card > p { align-self: stretch; width: 100%; max-width: 100%; }
+.form-row { min-width: 0; }
+.form-row > * { min-width: 0; }
+.readback-card { width: 100%; max-width: 100%; overflow-wrap: anywhere; }
+.readback-grid { display: grid; grid-template-columns: 1fr; gap: 6px; width: 100%; }
+.readback-grid > div { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid #d8d4c4; min-width: 0; }
+.readback-grid > div > span { color: #706c5e; font-size: 8px; text-transform: uppercase; }
+.readback-grid > div > code { font-size: 9px; overflow-wrap: anywhere; word-break: break-word; }
+@media (max-width: 620px) {
+  .settings-card .button { white-space: normal; text-align: center; min-height: 44px; }
+}
 .settings-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; padding: 12px; border-top: 1px solid #aaa696; border-bottom: 1px solid #aaa696; color: #625e52; font-size: 8px; }
 .settings-footer > span { flex: 1; min-width: 180px; }
 .settings-footer a { display: flex; align-items: center; gap: 5px; color: var(--electric-cobalt); }
