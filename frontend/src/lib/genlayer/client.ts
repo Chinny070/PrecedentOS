@@ -156,6 +156,53 @@ export async function readEvaluation(client: GenLayerClient, address: string, ev
   return value as Record<string, string>;
 }
 
+async function readRecordView(
+  client: GenLayerClient, address: string, functionName: string, args: CalldataEncodable[], label: string,
+): Promise<Record<string, string>> {
+  const value: unknown = await client.readContract({ address: checkedContractAddress(address), functionName, args });
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} returned an unexpected shape.`);
+  return value as Record<string, string>;
+}
+
+export async function readCase(client: GenLayerClient, address: string, caseId: string): Promise<Record<string, string>> {
+  if (!validRecordId(caseId)) throw new Error('Invalid CaseCourt case identifier.');
+  return readRecordView(client, address, 'get_case', [caseId], 'CaseCourt case');
+}
+
+export async function readCaseEvidence(client: GenLayerClient, address: string, caseId: string, evidenceId: string): Promise<Record<string, string>> {
+  if (!validRecordId(caseId) || !validRecordId(evidenceId)) throw new Error('Invalid CaseCourt case or evidence identifier.');
+  return readRecordView(client, address, 'get_evidence', [caseId, evidenceId], 'CaseCourt evidence reference');
+}
+
+export async function readCaseJudgment(client: GenLayerClient, address: string, judgmentId: string): Promise<Record<string, string>> {
+  if (!validRecordId(judgmentId)) throw new Error('Invalid CaseCourt judgment identifier.');
+  return readRecordView(client, address, 'get_judgment', [judgmentId], 'CaseCourt judgment');
+}
+
+export async function readAppeal(client: GenLayerClient, address: string, appealId: string): Promise<Record<string, string>> {
+  if (!validRecordId(appealId)) throw new Error('Invalid CaseCourt appeal identifier.');
+  return readRecordView(client, address, 'get_appeal', [appealId], 'CaseCourt appeal');
+}
+
+export async function readAppellateRuling(client: GenLayerClient, address: string, appealId: string): Promise<Record<string, string>> {
+  if (!validRecordId(appealId)) throw new Error('Invalid CaseCourt appeal identifier.');
+  return readRecordView(client, address, 'get_appellate_ruling', [appealId], 'CaseCourt appellate ruling');
+}
+
+export async function readWebSource(
+  client: GenLayerClient, address: string, caseId: string, sourceId: string, version: number,
+): Promise<Record<string, string>> {
+  if (!validRecordId(caseId) || !validRecordId(sourceId)) throw new Error('Invalid CaseCourt case or source identifier.');
+  return readRecordView(client, address, 'get_web_source', [caseId, sourceId, version], 'CaseCourt web source');
+}
+
+export async function readCaseAction(
+  client: GenLayerClient, address: string, caseId: string, sequence: number,
+): Promise<Record<string, string>> {
+  if (!validRecordId(caseId)) throw new Error('Invalid CaseCourt case identifier.');
+  return readRecordView(client, address, 'get_case_action', [caseId, sequence], 'CaseCourt case action');
+}
+
 export type EvaluationReadbackBinding = {
   evaluationId: string;
   recordAId: string;
@@ -216,7 +263,178 @@ async function validateWrite(functionName: string, args: CalldataEncodable[]): P
     if (await sha256Utf8(evidence.precedent_a) !== digestA || await sha256Utf8(evidence.precedent_b) !== digestB) throw new Error('Evidence digest does not match the exact submitted UTF-8 passage.');
     return;
   }
+
+  if (CASE_COURT_WRITE_METHODS.has(functionName)) {
+    await validateCaseCourtWrite(functionName, args);
+    return;
+  }
   throw new Error(`Unsupported PrecedentOS write method: ${functionName}.`);
+}
+
+const CASE_COURT_WRITE_METHODS = new Set([
+  'open_case', 'append_evidence', 'lock_evidence', 'adjudicate_case',
+  'file_appeal', 'append_appeal_evidence', 'lock_appeal_evidence',
+  'propose_appeal_reviewer', 'approve_appeal_reviewer', 'begin_appeal_review',
+  'adjudicate_appeal', 'resolve_appeal', 'request_appeal_withdrawal', 'approve_appeal_withdrawal',
+  'register_web_source', 'approve_web_source', 'request_web_source_capture',
+  'capture_web_source', 'report_web_source_unavailable',
+]);
+
+function checkedId(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !validRecordId(value)) throw new Error(`Invalid ${label} identifier.`);
+  return value;
+}
+
+function checkedVersion(value: unknown, label: string): void {
+  if (typeof value !== 'bigint' && typeof value !== 'number') throw new Error(`${label} must be a case version integer.`);
+}
+
+function checkedCaseDigest(value: unknown, label: string): void {
+  if (typeof value !== 'string' || !validDigest(value)) throw new Error(`${label} must be 64 lowercase hexadecimal characters.`);
+}
+
+async function validateCaseCourtWrite(functionName: string, args: CalldataEncodable[]): Promise<void> {
+  switch (functionName) {
+    case 'open_case': {
+      if (args.length !== 6) throw new Error('open_case requires exactly six arguments.');
+      const [caseId, actionId, respondent, caseType, policyVersion, openingDigest] = args;
+      checkedId(caseId, 'case'); checkedId(actionId, 'action');
+      if (typeof respondent !== 'string' || !isAddress(respondent)) throw new Error('A valid, distinct respondent address is required.');
+      if (typeof caseType !== 'string' || !caseType.trim() || caseType.length > 64) throw new Error('Invalid case type label.');
+      if (policyVersion !== 1) throw new Error('Unsupported case policy version.');
+      checkedCaseDigest(openingDigest, 'Opening evidence digest');
+      return;
+    }
+    case 'append_evidence':
+    case 'append_appeal_evidence': {
+      const isAppeal = functionName === 'append_appeal_evidence';
+      if (args.length !== (isAppeal ? 7 : 6)) throw new Error(`${functionName} requires exactly ${isAppeal ? 7 : 6} arguments.`);
+      const [caseId, ...rest] = args;
+      checkedId(caseId, 'case');
+      const [appealOrVersion, ...rest2] = rest;
+      if (isAppeal) checkedId(appealOrVersion, 'appeal');
+      const [expectedVersion, actionId, evidenceId, digest, schemaVersion, sourceRefDigest] = isAppeal
+        ? rest2 : [appealOrVersion, ...rest2];
+      checkedVersion(expectedVersion, 'Expected version'); checkedId(actionId, 'action'); checkedId(evidenceId, 'evidence');
+      checkedCaseDigest(digest, 'Evidence digest');
+      if (schemaVersion !== 1) throw new Error('Unsupported evidence schema version.');
+      checkedCaseDigest(sourceRefDigest, 'Source reference digest');
+      return;
+    }
+    case 'lock_evidence': {
+      if (args.length !== 3) throw new Error('lock_evidence requires exactly three arguments.');
+      checkedId(args[0], 'case'); checkedVersion(args[1], 'Expected version'); checkedId(args[2], 'action');
+      return;
+    }
+    case 'lock_appeal_evidence':
+    case 'begin_appeal_review': {
+      if (args.length !== 4) throw new Error(`${functionName} requires exactly four arguments.`);
+      checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      return;
+    }
+    case 'adjudicate_case': {
+      if (args.length !== 5) throw new Error('adjudicate_case requires exactly five arguments.');
+      const [caseId, expectedVersion, actionId, judgmentId, packet] = args;
+      checkedId(caseId, 'case'); checkedVersion(expectedVersion, 'Expected version'); checkedId(actionId, 'action'); checkedId(judgmentId, 'judgment');
+      if (typeof packet !== 'string') throw new Error('Evidence packet must be a JSON string.');
+      let parsed: unknown;
+      try { parsed = JSON.parse(packet); } catch { throw new Error('Judgment evidence packet must be valid JSON.'); }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Array.isArray((parsed as Record<string, unknown>).evidence)) {
+        throw new Error('Judgment evidence packet must contain an evidence array.');
+      }
+      return;
+    }
+    case 'file_appeal': {
+      if (args.length !== 12) throw new Error('file_appeal requires exactly twelve arguments.');
+      const [caseId, expectedVersion, actionId, appealId, targetKind, targetId, targetVersion,
+        targetCommitment, parentAppealId, groundsCode, groundsText, groundsDigest] = args;
+      checkedId(caseId, 'case'); checkedVersion(expectedVersion, 'Expected version'); checkedId(actionId, 'action'); checkedId(appealId, 'appeal');
+      if (targetKind !== 'JUDGMENT' && targetKind !== 'APPELLATE_RULING') throw new Error('Unsupported appeal target kind.');
+      checkedId(targetId, 'appeal target');
+      checkedVersion(targetVersion, 'Target version');
+      checkedCaseDigest(targetCommitment, 'Target commitment');
+      if (parentAppealId !== '' && (typeof parentAppealId !== 'string' || !validRecordId(parentAppealId))) throw new Error('Invalid parent appeal identifier.');
+      if (!['NEW_EVIDENCE', 'MATERIAL_ERROR', 'PROCEDURAL_CONCERN', 'MISAPPLIED_CRITERIA'].includes(groundsCode as string)) throw new Error('Unsupported appeal grounds code.');
+      if (typeof groundsText !== 'string' || !groundsText.trim() || groundsText.length > 600) throw new Error('Invalid appeal grounds text.');
+      checkedCaseDigest(groundsDigest, 'Grounds commitment');
+      return;
+    }
+    case 'propose_appeal_reviewer': {
+      if (args.length !== 5) throw new Error('propose_appeal_reviewer requires exactly five arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      if (typeof args[4] !== 'string' || !isAddress(args[4])) throw new Error('A valid non-party reviewer address is required.');
+      return;
+    }
+    case 'approve_appeal_reviewer': {
+      if (args.length !== 6) throw new Error('approve_appeal_reviewer requires exactly six arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      if (typeof args[4] !== 'string' || !isAddress(args[4])) throw new Error('A valid reviewer address is required.');
+      checkedCaseDigest(args[5], 'Reviewer proposal commitment');
+      return;
+    }
+    case 'adjudicate_appeal': {
+      if (args.length !== 6) throw new Error('adjudicate_appeal requires exactly six arguments.');
+      const [caseId, appealId, expectedVersion, actionId, groundsText, packet] = args;
+      checkedId(caseId, 'case'); checkedId(appealId, 'appeal'); checkedVersion(expectedVersion, 'Expected version'); checkedId(actionId, 'action');
+      if (typeof groundsText !== 'string' || !groundsText.trim()) throw new Error('Appeal grounds text is required.');
+      if (typeof packet !== 'string') throw new Error('Appeal review packet must be a JSON string.');
+      try { JSON.parse(packet); } catch { throw new Error('Appeal review packet must be valid JSON.'); }
+      return;
+    }
+    case 'resolve_appeal': {
+      if (args.length !== 5) throw new Error('resolve_appeal requires exactly five arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      checkedCaseDigest(args[4], 'Ruling commitment');
+      return;
+    }
+    case 'request_appeal_withdrawal': {
+      if (args.length !== 5) throw new Error('request_appeal_withdrawal requires exactly five arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      if (!['CONSENSUAL_EXIT', 'UNABLE_TO_PROCEED', 'EVIDENCE_UNAVAILABLE'].includes(args[4] as string)) throw new Error('Unsupported withdrawal reason code.');
+      return;
+    }
+    case 'approve_appeal_withdrawal': {
+      if (args.length !== 4) throw new Error('approve_appeal_withdrawal requires exactly four arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      return;
+    }
+    case 'register_web_source': {
+      if (args.length !== 8) throw new Error('register_web_source requires exactly eight arguments.');
+      const [caseId, expectedVersion, actionId, sourceId, sourceUrl, evidenceId, bindingKind, appealId] = args;
+      checkedId(caseId, 'case'); checkedVersion(expectedVersion, 'Expected version'); checkedId(actionId, 'action'); checkedId(sourceId, 'web source');
+      if (typeof sourceUrl !== 'string' || !sourceUrl.startsWith('https://')) throw new Error('Web source URL must be a canonical HTTPS URL.');
+      checkedId(evidenceId, 'evidence');
+      if (bindingKind !== 'CASE' && bindingKind !== 'APPEAL') throw new Error('Unsupported source binding kind.');
+      if (appealId !== '' && (typeof appealId !== 'string' || !validRecordId(appealId))) throw new Error('Invalid appeal identifier for source binding.');
+      return;
+    }
+    case 'approve_web_source': {
+      if (args.length !== 5) throw new Error('approve_web_source requires exactly five arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'web source'); checkedVersion(args[2], 'Source version'); checkedVersion(args[3], 'Expected version'); checkedId(args[4], 'action');
+      return;
+    }
+    case 'request_web_source_capture':
+    case 'capture_web_source': {
+      // request_web_source_capture(case, source, version, expected, action)
+      // capture_web_source(case, source, version, request, expected, action)
+      const isCapture = functionName === 'capture_web_source';
+      if (args.length !== (isCapture ? 6 : 5)) throw new Error(`${functionName} requires exactly ${isCapture ? 6 : 5} arguments.`);
+      checkedId(args[0], 'case'); checkedId(args[1], 'web source'); checkedVersion(args[2], 'Source version');
+      if (isCapture) checkedId(args[3], 'retrieval request');
+      checkedVersion(args[isCapture ? 4 : 3], 'Expected version');
+      checkedId(args[isCapture ? 5 : 4], 'action');
+      return;
+    }
+    case 'report_web_source_unavailable': {
+      if (args.length !== 7) throw new Error('report_web_source_unavailable requires exactly seven arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'web source'); checkedVersion(args[2], 'Source version');
+      checkedId(args[3], 'retrieval request'); checkedVersion(args[4], 'Expected version'); checkedId(args[5], 'action');
+      if (!['TIMEOUT', 'HTTP_ERROR', 'RENDER_ERROR', 'UNKNOWN'].includes(args[6] as string)) throw new Error('Unsupported unavailable report code.');
+      return;
+    }
+    default:
+      throw new Error(`Unsupported CaseCourt write method: ${functionName}.`);
+  }
 }
 
 export async function writeContractMethod(

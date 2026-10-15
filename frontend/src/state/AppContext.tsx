@@ -34,7 +34,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
   function disconnect() { setWallet(null); setWalletError(''); }
   function saveAddresses(next: ContractAddresses) {
-    const safe = { registry: typeof next.registry === 'string' ? next.registry.trim() : '', evaluator: typeof next.evaluator === 'string' ? next.evaluator.trim() : '' };
+    const safe = {
+      registry: typeof next.registry === 'string' ? next.registry.trim() : '',
+      evaluator: typeof next.evaluator === 'string' ? next.evaluator.trim() : '',
+      caseCourt: typeof next.caseCourt === 'string' ? next.caseCourt.trim() : '',
+    };
     setAddresses(safe);
     localStorage.setItem(ADDRESS_KEY, JSON.stringify(safe));
   }

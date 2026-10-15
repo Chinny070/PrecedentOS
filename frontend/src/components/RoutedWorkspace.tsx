@@ -4,6 +4,7 @@ import {
   ComparePage, EvaluationDetailPage, GraphPage, LabPage, PrecedentDetailPage, TribunalPage,
   PrecedentsPage, RegisterPage, SettingsPage, SimulatePage, VerifyPage, WebEvidencePage,
 } from '../pages/Pages';
+import { CaseCourtPage } from '../pages/CaseCourtPage';
 
 export function RoutedWorkspace() {
   const location = useLocation();
@@ -15,6 +16,7 @@ export function RoutedWorkspace() {
     <Route path="/compare" element={<ComparePage/>}/>
     <Route path="/evaluations/:id" element={<EvaluationDetailPage/>}/>
     <Route path="/graph" element={<GraphPage/>}/>
+    <Route path="/case-court" element={<CaseCourtPage/>}/>
     <Route path="/tribunal" element={<TribunalPage/>}/>
     <Route path="/simulate" element={<SimulatePage/>}/>
     <Route path="/verify" element={<VerifyPage/>}/>

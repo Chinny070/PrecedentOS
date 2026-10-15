@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { loadAddresses, loadLocalTransactionNotes } from './persistence';
 
-const defaults = { registry: '', evaluator: '' };
+const defaults = { registry: '', evaluator: '', caseCourt: '' };
 const finalNote = JSON.stringify([{ hash: `0x${'a'.repeat(64)}`, action: 'Register fictional record', status: 'finalized', submittedAtLocal: '2030-01-01T00:00:00.000Z', finalizedAtObserved: '2030-01-01T00:01:00.000Z' }]);
 
 describe('browser-persisted settings and transaction notes', () => {
   it('loads only string contract settings and trims whitespace', () => {
-    expect(loadAddresses(JSON.stringify({ registry: '  0xabc  ', evaluator: 5 }), defaults)).toEqual({ registry: '0xabc', evaluator: '' });
+    expect(loadAddresses(JSON.stringify({ registry: '  0xabc  ', evaluator: 5 }), defaults)).toEqual({ registry: '0xabc', evaluator: '', caseCourt: '' });
     expect(loadAddresses('{broken', defaults)).toEqual(defaults);
     expect(loadAddresses(JSON.stringify(['not', 'an', 'object']), defaults)).toEqual(defaults);
   });

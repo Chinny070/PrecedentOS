@@ -9,6 +9,7 @@ const nav = [
   { to: '/precedents/new', label: 'Register a record', icon: 'plus' },
   { to: '/compare', label: 'Compare judgments', icon: 'compare' },
   { to: '/graph', label: 'Lineage graph', icon: 'graph' },
+  { to: '/case-court', label: 'Case Court', icon: 'book' },
   { to: '/tribunal', label: 'Contradiction tribunal', icon: 'compare' },
   { to: '/simulate', label: 'Counterfactual lab', icon: 'spark' },
   { to: '/verify', label: 'Verification trail', icon: 'shield' },
@@ -19,7 +20,7 @@ const nav = [
 const titleFor: Record<string, string> = {
   '/lab': 'Research lab', '/precedents': 'Precedent registry', '/precedents/new': 'Register precedent',
   '/compare': 'Judgment comparison', '/graph': 'Judgment lineage', '/simulate': 'Counterfactual lab',
-  '/tribunal': 'Contradiction tribunal',
+  '/case-court': 'Case Court', '/tribunal': 'Contradiction tribunal',
   '/verify': 'Verification trail', '/web-evidence': 'Web evidence', '/settings': 'Network & wallet',
 };
 

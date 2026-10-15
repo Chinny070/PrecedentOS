@@ -1,6 +1,6 @@
 import type { TransactionTrace } from '../types/domain';
 
-export type ContractAddresses = { registry: string; evaluator: string };
+export type ContractAddresses = { registry: string; evaluator: string; caseCourt: string };
 
 export function loadAddresses(serialized: string | null, defaults: ContractAddresses): ContractAddresses {
   if (!serialized) return defaults;
@@ -11,6 +11,7 @@ export function loadAddresses(serialized: string | null, defaults: ContractAddre
     return {
       registry: typeof value.registry === 'string' ? value.registry.trim() : defaults.registry,
       evaluator: typeof value.evaluator === 'string' ? value.evaluator.trim() : defaults.evaluator,
+      caseCourt: typeof value.caseCourt === 'string' ? value.caseCourt.trim() : defaults.caseCourt,
     };
   } catch { return defaults; }
 }
