@@ -158,3 +158,18 @@ Read-only post-deploy smoke tests: `get_registration_count()` → `0`, `get_eval
 Fee cost: `genlayer account` reported the identical balance (`214.945289999999999977 GEN`) before and after this three-contract deployment batch. This is reported exactly as observed; it is not independently explained here (it may reflect a Studio fee-accounting model not deducted from this balance view, or a display that does not refresh fee burn), and should not be read as proof that deployment was free. The installed CLI's `genlayer estimate-fees` could not produce a prior estimate (`client.estimateTransactionFees is not a function`).
 
 Full raw deployment/receipt output and manifest: `docs/V2_DEPLOYMENT_MANIFEST_STUDIONET_RUN.json` (git-tracked). `frontend/.env` (local, gitignored) was generated with these three addresses by the deploy script.
+
+### CLI `write`/`call` argument-encoding limitation — discovered during live demo, 2026-10-15
+
+Two live `genlayer write` attempts against the new deployments failed, both FINALIZED with consensus **MAJORITY_AGREE** but GenVM **execution_result: ERROR** on every validator (a deterministic rejection, not model disagreement):
+
+- `evaluate_pair` on the new Evaluator (`0xA712Cdad9834fCBe63f64013e61d8d089f34D6EC`), tx `0x077df3a3e054132655ea043cf712ee4382c2389c4ef332b90930736787f6c430`. `get_evaluation("EVAL-CLI-DEMO-001")` confirmed empty afterward — no state mutated.
+- `open_case` on the new CaseCourt (`0xE084a96fbF8B42c7A9885fFABBa3b6C4076772C8`), tx `0x8bd067d2e1f187227a9cbf975f3d38244c3e32bfcf64efbe91b33a4daff63493`. `get_case_count()` confirmed `0` afterward — no state mutated.
+
+Root cause, confirmed by reading the installed CLI's own source (`genlayer/dist/index.js`, function `parseArg`): any `--args` value is first run through `JSON.parse`; if it parses as an object or array, the CLI silently re-encodes it as a structured calldata value instead of the plain string the contract parameter declares. This fires on two common shapes:
+1. Any JSON-looking argument (e.g. `evaluate_pair`'s or `adjudicate_case`'s `evidence_packet_json`, which is deliberately `{"precedent_a": ..., "precedent_b": ...}`) gets coerced to a structured dict instead of staying a `str`.
+2. Any `0x`-prefixed 40-hex-character argument (e.g. a respondent address passed to a `str`-typed parameter, by design, per the `open_case` address-input fix earlier in this document) gets coerced to a structured `Address` instead of staying a `str`.
+
+No string-escaping workaround exists within the CLI's own `--args` parser: the non-object fallback path (`parseScalar`) returns the original, unprocessed argument text rather than the JSON-unescaped value, so there is no way to submit a value that both looks like valid JSON/an address and arrives as a plain string. This is a genuine CLI tooling limitation, not a contract defect — both failed transactions are consistent with the contract's own `isinstance(..., str)` / exact-length validation correctly and deterministically rejecting a wrongly-typed argument.
+
+**Workaround used for this release's live demo:** GenLayer Studio's UI does not have this bug (it composes calldata directly from typed form fields, not a JSON-sniffing string parser), so any CaseCourt write that needs a JSON evidence packet or a `str`-typed address argument should go through Studio, exactly as the original Phase A/judgment work earlier in this document did. Plain-scalar-only CLI writes (no address or JSON-shaped argument) are unaffected and were not retried blindly to avoid spending further fees on a known-bad path.
