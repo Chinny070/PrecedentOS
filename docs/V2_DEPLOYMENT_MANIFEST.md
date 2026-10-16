@@ -173,3 +173,15 @@ Root cause, confirmed by reading the installed CLI's own source (`genlayer/dist/
 No string-escaping workaround exists within the CLI's own `--args` parser: the non-object fallback path (`parseScalar`) returns the original, unprocessed argument text rather than the JSON-unescaped value, so there is no way to submit a value that both looks like valid JSON/an address and arrives as a plain string. This is a genuine CLI tooling limitation, not a contract defect — both failed transactions are consistent with the contract's own `isinstance(..., str)` / exact-length validation correctly and deterministically rejecting a wrongly-typed argument.
 
 **Workaround used for this release's live demo:** GenLayer Studio's UI does not have this bug (it composes calldata directly from typed form fields, not a JSON-sniffing string parser), so any CaseCourt write that needs a JSON evidence packet or a `str`-typed address argument should go through Studio, exactly as the original Phase A/judgment work earlier in this document did. Plain-scalar-only CLI writes (no address or JSON-shaped argument) are unaffected and were not retried blindly to avoid spending further fees on a known-bad path.
+
+## CaseCourt redeployment — appeal freeze timeout, 2026-10-16
+
+The previous CaseCourt address (`0xE084a96fbF8B42c7A9885fFABBa3b6C4076772C8`) remains live and historical, including its persisted `FICT-CASE-STUDIO-CLI-001` case and judgment. It does **not** have the appeal-freeze timeout fix below; contract code cannot be patched in place, only superseded by a fresh deployment.
+
+**New CaseCourt address:** `0xE1BA9dEf39A970d5dd3F73035Ac80a9e9314a5C9`
+**Deployment tx:** `0xb1e02c9adae1da1e6e82b8d28ed245babbe5352ac960b9160a9d01a35bcd076f` — FINALIZED, `result_name=MAJORITY_AGREE` (3 real `AGREE` votes, 2 validators correctly idled once quorum was reached — the `CONSENSUS_VALIDATOR_QUORUM_REACHED` entries in the raw receipt are that benign idle marker, not execution failures).
+**Source SHA-256:** `5aebbf1753e04d3c6bdde34b39a9377a3aba23fabee95bb989ddc0cba55ffd33`
+**Source identity:** independently verified — `genlayer code` fetched from the deployed address and diffed line-for-line against the local `contracts/case_court.py`; byte-identical (4029/4029 lines).
+**Smoke test:** `get_case_count()` → `0`, consistent with a fresh deployment.
+
+What changed versus the prior CaseCourt source: `lapse_stalled_appeal` (a bounded, non-decisional timeout for a stalled appeal freeze) and the mutual-reviewer-approval appeal governance from the earlier commit on this branch. No other behavior changed. The frontend's `VITE_GENLAYER_CASECOURT_ADDRESS` (local `.env` and the Vercel production environment variable) now points at this new address; Registry and Evaluator are unchanged and still point at their existing addresses.
