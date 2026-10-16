@@ -31,6 +31,36 @@ export interface AppealFilingCommitmentInput {
   grounds_digest: string;
 }
 
+export interface AppealTargetJudgmentReadback {
+  case_id?: string;
+  case_version?: string;
+  judgment_commitment?: string;
+}
+
+export async function prepareAppealJudgmentTarget(
+  readback: AppealTargetJudgmentReadback,
+  expectedCaseId: string,
+  appealId: string,
+  targetId: string,
+  appellant: string,
+  groundsCode: string,
+  groundsDigest: string,
+): Promise<{ target_version: number; target_commitment: string; filing_commitment: string }> {
+  if (readback.case_id !== expectedCaseId || !/^\d+$/.test(readback.case_version ?? '')
+    || !validDigest(readback.judgment_commitment ?? '')) {
+    throw new Error('invalid_appeal_target_readback');
+  }
+  const targetVersion = Number(readback.case_version);
+  if (!Number.isSafeInteger(targetVersion) || targetVersion < 1) throw new Error('invalid_appeal_target_version');
+  const targetCommitment = readback.judgment_commitment as string;
+  const filingCommitment = await computeAppealFilingCommitment({
+    appeal_id: appealId, case_id: expectedCaseId, target_kind: 'JUDGMENT', target_id: targetId,
+    target_version: targetVersion, target_commitment: targetCommitment, parent_appeal_id: '',
+    appellant, grounds_code: groundsCode, grounds_digest: groundsDigest,
+  });
+  return { target_version: targetVersion, target_commitment: targetCommitment, filing_commitment: filingCommitment };
+}
+
 export interface AppellateInputCommitmentInput {
   chain_id: number;
   court_address: string;

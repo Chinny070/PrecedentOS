@@ -1,35 +1,54 @@
-# PrecedentOS
+# PrecedentOS 2.0
 
-PrecedentOS is a precedent-aware research workbench built around GenLayer Intelligent Contracts. It compares bounded fictional precedent evidence and keeps the inputs, decision fields and transaction lifecycle visible. It is not a court or legal advice; validator agreement under a contract-defined rule does not establish legal correctness.
+PrecedentOS is a fictional-case research prototype built with three GenLayer Intelligent Contracts and a React/TypeScript frontend. It supports precedent registration and comparison, case evidence and AI assessments, appeals, freeze and resolution flows, contradiction challenges, authority links, and a bounded Web Render path that remains disabled in the current contract source. It is not a court or legal advice. Validator agreement does not establish legal correctness, neutral governance, or fair notice.
 
-## Existing protocol
+## Current repository
 
-- contracts/precedent_registry.py — append-only fictional precedent commitments.
-- contracts/precedent_evaluator.py — bounded AI-assisted comparison with independent decision-field validation.
-- tests/ — Direct Mode regression suite and fictional public fixtures.
+- `contracts/precedent_registry.py` — append-only precedent registry.
+- `contracts/precedent_evaluator.py` — evidence-bound precedent comparison.
+- `contracts/case_court.py` — case lifecycle, evidence, judgments, appeals, challenges, authority, and Web Render methods.
+- `frontend/` — React, TypeScript, Vite application using `genlayer-js` and real contract calls when configured.
+- `tests/` — Python Direct Mode tests and shared fictional fixtures; Direct Mode mocks do not prove live validator consensus or Studionet behavior.
+- `manual-deployment/` — user-maintained deployment material; intentionally untracked.
 
-Both contracts and all existing tests are preserved. Historical Direct Mode evidence is 29 Registry + 30 Evaluator tests; those tests do not establish live validator consensus or Studionet deployment.
+The frontend targets stable Studionet chain ID `61999`. Current user-reported deployment addresses and verification evidence are in [the deployment manifest](docs/V2_DEPLOYMENT_MANIFEST.md); the repository has not independently matched deployed bytecode to source or fetched all receipts. The deployed CaseCourt does not inherit source changes made after its deployment.
 
-## Browser application
+## Clean-clone setup (Windows PowerShell)
 
-The static React/TypeScript frontend lives in frontend/. It has no application backend, database or indexer. Demo mode is available without a wallet; contract writes require configured deployment addresses and an injected wallet.
+Requirements: Python 3.12+, Node.js `^20.19.0` or `>=22.12.0`, npm, and Git. From the repository root:
 
 ```powershell
-cd frontend
-npm install
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+python scripts/run_tests_safe.py tests
+genvm-lint check contracts/precedent_registry.py
+genvm-lint check contracts/precedent_evaluator.py
+genvm-lint check contracts/case_court.py
+```
+
+GenVM lint/schema output is a local tool result, not proof of stable-runner compatibility. Do not run Studio Mode/deployment commands against a valuable network as part of setup.
+
+For the frontend:
+
+```powershell
+Set-Location frontend
+npm ci
+Copy-Item .env.example .env.local
+npm run lint
+npm run typecheck
+npm test
+npm run build
 npm run dev
 ```
 
-Quality checks: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
+The three `VITE_GENLAYER_*_ADDRESS` values in `.env.local` are public addresses only. Never put private keys or secrets in Vite variables. Wallet writes require an injected wallet connected to Studionet and explicit user signatures. Demo fixtures are local examples and are never presented as chain readbacks.
 
-Copy frontend/.env.example to frontend/.env.local only when supplying verified public contract addresses. Never place wallet keys or secrets in Vite environment variables. The app targets stable Studionet chain ID 61999; it does not deploy contracts.
+## Verification boundaries
 
-## Honest capability status
+Frontend write success requires a finalized receipt, majority agreement, and `FINISHED_WITH_RETURN`; a timeout remains unresolved and must not trigger a duplicate write. After a refresh, saved transaction entries are unverified local notes until checked against the network. Dependent case actions require the latest exact on-chain version.
 
-- Fictional demo records and comparison examples are local fixtures, not chain results.
-- Registry enumeration is not available in the current interface; search and graph coverage is limited to loaded examples.
-- No verified deployment addresses are bundled.
-- Web Render is gated and disabled pending runtime verification.
-- Timestamps are shown only as submitter dates or device observations unless an authoritative chain field is later verified.
+Either named party can submit and lock evidence under the current contract. There is no respondent acknowledgement or general response window, and the appellate reviewer is a mutually approved named participant rather than an independent tribunal. Those are prototype limitations. Appeal freezes can still require the contract's appeal/recovery path if review stalls. Use disposable fictional cases for demonstrations.
 
-See [frontend architecture](docs/FRONTEND_ARCHITECTURE.md), [implementation status](docs/IMPLEMENTATION_STATUS.md), and [network verification](docs/NETWORK_VERIFICATION.md).
+See [deployment manifest](docs/V2_DEPLOYMENT_MANIFEST.md), [CaseCourt readiness](docs/V2_CASECOURT_READINESS.md), [Stage 9 live verification](docs/V2_STAGE_9_LIVE_VERIFICATION.md), [acceptance matrix](docs/V2_ACCEPTANCE_MATRIX.md), and [implementation masterplan](docs/V2_IMPLEMENTATION_MASTERPLAN.md) for evidence provenance and outstanding live-work gates.

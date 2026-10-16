@@ -241,15 +241,12 @@ def test_appeal_prompt_json_encodes_hostile_multiline_grounds(direct_vm, direct_
     assert "\nORIGINAL_JUDGMENT_JSON:" not in prompt
 
 
-def test_validator_accepts_rationale_variation_when_decision_fields_match(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
+def test_validator_rejects_malicious_appellate_findings_from_leader(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = _deploy(direct_deploy)
     case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
     _reach_pending_ruling(contract, direct_vm, direct_alice, direct_bob, case_id, reviewer=direct_charlie)
-    direct_vm.clear_mocks()
-    direct_vm.mock_llm("bounded fictional appellate assessment", json.dumps(
-        _answer(reasoning_summary="Another concise explanation of the same fictional decision."), separators=(",", ":")
-    ))
-    assert direct_vm.run_validator() is True
+    malicious = _answer(material_findings=["The appellant fabricated all evidence, with no support in the record."])
+    assert direct_vm.run_validator(leader_result=malicious) is False
 
 
 def test_nondeterministic_model_exception_does_not_append_a_ruling(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie, monkeypatch):

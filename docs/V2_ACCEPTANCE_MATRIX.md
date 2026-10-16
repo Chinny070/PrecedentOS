@@ -210,6 +210,24 @@ No requirement is **LIVE VERIFIED** by Stage 7B. `V2_STAGE_7B_REPORT.md` gives t
 6. A live consensus result demonstrates protocol execution under its equivalence rule, not legal correctness.
 7. A locally valid case-decision schema/helper is not an authoritative decision. Only a runtime-verified immutable Court record plus the correct successful finalized transaction can support that label.
 
+## Current acceptance overlay — 2026-10-16
+
+This overlay supersedes older “NOT STARTED” frontend labels where later work is documented; historical reports above remain dated snapshots.
+
+| Capability | Current source/local state | Studionet evidence boundary |
+|---|---|---|
+| Registry, Evaluator, CaseCourt deployment and successful readbacks | Implemented; deployment artifacts/source checks are recorded in `V2_DEPLOYMENT_MANIFEST.md`. | Latest user-coordinated CLI deployment records include exact source SHA-256, fetched source comparison, finalized receipt, and readback. Do not equate later working-tree edits with those deployed bytes. |
+| CaseCourt judgment | Implemented; Direct Mode and frontend contract calls exist. | At least two successful persisted fictional judgments are recorded in `V2_STAGE_9_LIVE_VERIFICATION.md`; evidence is attributed to user-observed Studio/CLI outputs. |
+| Appeal filing and lifecycle | Contract lifecycle exists. Frontend now reads and binds the original judgment version/commitment, computes the filing commitment, supports appeal evidence append, adjudication, ruling readback, and resolution. | No claim that these latest frontend/source edits are deployed. Live appeal/freeze walk-through is still required on a disposable case. The bound reviewer is mutually approved and is not represented as a neutral tribunal. |
+| AI narrative equivalence | Working-tree source now includes findings and rationale in Evaluator, CaseCourt judgment, and appellate validator comparisons; adversarial Direct Mode regressions added. | This is not deployed until a matching contract redeployment. Exact narrative agreement does not itself prove truth or evidence support. |
+| Bilateral fairness | Explicit limitation: either party can submit/lock evidence; no respondent acknowledgement or general response window. Prototype/research use only unless a governance policy is added. | Not a legal-governance approval. |
+| Transaction recovery | Hashes persist as local notes and are demoted to unknown after refresh; SDK-shaped tests cover timeout, missing metadata, consensus failure, rollback, and signature rejection. Known failure unlocks the UI; unresolved status remains read-only recheck. | A complete fresh-browser staged walkthrough, including dependent writes, is not recorded. |
+| Web Render | Bounded implementation exists; source constant remains false in the deployed contract version identified by the manifest. | Disabled; enabling source code alone does not change a deployed address. |
+| Clean-clone setup | README and `requirements-dev.txt` now give one local setup and verification path. | Tool versions are pinned where known; GenVM lint remains local schema/tool evidence, not runner compatibility. |
+| Deployed artifact identity | Manifest records exact deployment source hashes and retrieved-code comparisons for its listed addresses. | Do not infer identity for a different address or post-deployment working-tree change; receipts/readbacks remain only as independently retrieved where the manifest says so. |
+
+The latest source changes in this acceptance overlay have not been deployed. They require the user-controlled deployment process before any live contract claim can include the stronger narrative checks.
+
 ## Stage 9 Registry call evidence overlay (2026-10-14)
 
 This addendum supersedes earlier statements that no Registry production call or readback evidence had been supplied. Status is based on user-provided Explorer details and Studio view responses, not an independently retrieved receipt.

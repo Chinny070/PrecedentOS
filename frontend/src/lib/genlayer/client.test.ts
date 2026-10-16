@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CalldataEncodable } from 'genlayer-js/types';
 import type { GenLayerClient, InjectedProvider, WalletSession } from './client';
 
 const hash = `0x${'1'.repeat(64)}` as const;
@@ -17,7 +18,7 @@ const sdkClient = {
 vi.mock('genlayer-js', () => ({ createClient: vi.fn(() => sdkClient) }));
 vi.mock('genlayer-js/chains', () => ({ studionet: { id: 61999, rpcUrls: { default: { http: ['https://studio.genlayer.com/api'] } } } }));
 
-const { assertEvaluationReadbackBinding, assertWalletSessionCurrent, connectInjectedWallet, probeStudionetRpc, readPrecedent, trackTransactionLifecycle, watchWalletSession, writeContractMethod } = await import('./client');
+const { assertEvaluationReadbackBinding, assertWalletSessionCurrent, connectInjectedWallet, probeStudionetRpc, readAppeal, readAppellateRuling, readPrecedent, trackTransactionLifecycle, watchWalletSession, writeContractMethod } = await import('./client');
 
 function providerFor(overrides: Record<string, unknown> = {}): InjectedProvider {
   return {
@@ -59,6 +60,12 @@ describe('GenLayerJS 1.1.8 wallet and transaction adapter', () => {
   it('surfaces wallet request rejection without creating a session', async () => {
     const provider = providerFor({ request: vi.fn().mockRejectedValue(new Error('User rejected request')) });
     await expect(connectWith(provider)).rejects.toThrow('User rejected request');
+  });
+
+  it('surfaces a rejected transaction signature without returning a transaction hash', async () => {
+    sdkClient.writeContract.mockRejectedValueOnce(new Error('User rejected transaction signature'));
+    await expect(writeContractMethod(session(), `0x${'c'.repeat(40)}`, 'register_precedent', registryArgs()))
+      .rejects.toThrow('User rejected transaction signature');
   });
 
   it('rejects a changed account during the documented connect flow', async () => {
@@ -361,5 +368,28 @@ describe('CaseCourt write argument validation and type preservation', () => {
       'MATERIAL_ERROR', 'Fictional grounds text.', 'b'.repeat(64),
     ];
     await expect(writeContractMethod(session(), caseCourtAddress, 'file_appeal', args)).rejects.toThrow('exactly 13 arguments');
+  });
+
+  it('submits the appeal evidence, lock, reviewer, review, adjudication, and resolution ABI shapes', async () => {
+    const steps: Array<[string, CalldataEncodable[]]> = [
+      ['append_appeal_evidence', ['FICT-CASE-001', 'AP-1', 5, 'ACT-AE', 'EV-AP-1', 'a'.repeat(64), 1, 'b'.repeat(64)]],
+      ['lock_appeal_evidence', ['FICT-CASE-001', 'AP-1', 6, 'ACT-AL']],
+      ['propose_appeal_reviewer', ['FICT-CASE-001', 'AP-1', 7, 'ACT-RP', `0x${'c'.repeat(40)}`]],
+      ['approve_appeal_reviewer', ['FICT-CASE-001', 'AP-1', 8, 'ACT-RA', `0x${'c'.repeat(40)}`, 'd'.repeat(64)]],
+      ['begin_appeal_review', ['FICT-CASE-001', 'AP-1', 9, 'ACT-AR']],
+      ['adjudicate_appeal', ['FICT-CASE-001', 'AP-1', 10, 'ACT-AA', 'Fictional grounds.', JSON.stringify({ original_evidence: [], appeal_evidence: [] })]],
+      ['resolve_appeal', ['FICT-CASE-001', 'AP-1', 11, 'ACT-RES', 'e'.repeat(64)]],
+    ];
+    for (const [method, args] of steps) {
+      await expect(writeContractMethod(session(), caseCourtAddress, method, args)).resolves.toBe(hash);
+      expect(sdkClient.writeContract.mock.calls.at(-1)?.[0].args).toEqual(args);
+    }
+  });
+
+  it('reads the exact appeal filing and appellate ruling views', async () => {
+    sdkClient.readContract.mockResolvedValueOnce({ appeal_id: 'AP-1' }).mockResolvedValueOnce({ ruling_commitment: 'a'.repeat(64) });
+    expect(await readAppeal(session().client, caseCourtAddress, 'AP-1')).toEqual({ appeal_id: 'AP-1' });
+    expect(await readAppellateRuling(session().client, caseCourtAddress, 'AP-1')).toEqual({ ruling_commitment: 'a'.repeat(64) });
+    expect(sdkClient.readContract.mock.calls.map(([call]) => call.functionName)).toEqual(['get_appeal', 'get_appellate_ruling']);
   });
 });

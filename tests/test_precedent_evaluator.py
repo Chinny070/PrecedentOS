@@ -216,14 +216,22 @@ def test_validator_rejects_disagreement_on_decision_boolean_with_same_classifica
     assert direct_vm.run_validator() is False
 
 
-def test_rationale_variation_does_not_change_decision_equivalence(direct_vm, direct_deploy):
+def test_validator_rejects_malicious_narrative_disagreement(direct_vm, direct_deploy):
     contract = deploy(direct_deploy)
     answer = answer_for_case("matching")
     evaluate(contract, direct_vm, "matching", answer)
     validator_answer = {**answer, "reasoning": "A separately worded short explanation."}
     mock_result(direct_vm, validator_answer)
 
-    assert direct_vm.run_validator() is True
+    assert direct_vm.run_validator() is False
+
+
+def test_validator_rejects_unsupported_finding_in_leader_narrative(direct_vm, direct_deploy):
+    contract = deploy(direct_deploy)
+    answer = answer_for_case("matching")
+    evaluate(contract, direct_vm, "matching", answer)
+    malicious_leader = {**answer, "similarities": ["The evidence proves the agency acted unlawfully."]}
+    assert direct_vm.run_validator(leader_result=malicious_leader) is False
 
 
 def test_malformed_model_result_fails_without_persisting_evaluation(direct_vm, direct_deploy):

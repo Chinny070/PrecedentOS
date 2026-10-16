@@ -1341,7 +1341,7 @@ class CaseCourt(gl.Contract):
                 for field in (
                     "outcome_classification", "evidence_sufficient", "material_issue_determined",
                     "decision_eligible", "relevant_rule_application", "recommended_outcome",
-                    "applicable_criteria", "uncertainty_flags",
+                    "applicable_criteria", "uncertainty_flags", "material_findings", "reasoning_summary",
                 ):
                     if leader[field] != validator[field]:
                         return False
@@ -2474,6 +2474,7 @@ class CaseCourt(gl.Contract):
                 for field in (
                     "outcome", "original_judgment_valid", "material_error_found", "evidence_sufficient",
                     "reversal_justified", "remand_required", "case_state_change", "applicable_criteria",
+                    "material_findings", "reasoning_summary",
                 ):
                     if leader[field] != validator[field]:
                         return False

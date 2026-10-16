@@ -277,6 +277,14 @@ def test_json_only_valid_but_decision_disagreement_is_rejected_by_mocked_validat
     assert direct_vm.run_validator() is False
 
 
+def test_validator_rejects_malicious_judgment_findings_from_leader(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = _deploy(direct_deploy)
+    _open_and_lock(contract, direct_vm, direct_alice, direct_bob)
+    _adjudicate(contract, direct_vm)
+    malicious = _answer(material_findings=["The record proves bribery, although no evidence mentions bribery."])
+    assert direct_vm.run_validator(leader_result=malicious) is False
+
+
 def test_duplicate_judgment_and_replacement_are_rejected(direct_vm, direct_deploy, direct_alice, direct_bob):
     contract = _deploy(direct_deploy)
     _open_and_lock(contract, direct_vm, direct_alice, direct_bob)

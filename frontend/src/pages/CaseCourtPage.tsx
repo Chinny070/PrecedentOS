@@ -4,6 +4,7 @@ import { Icon } from '../components/Icons';
 import { SectionLabel, StatusTag } from '../components/StatusTag';
 import { useApp } from '../state/AppContext';
 import { sha256Utf8, validRecordId } from '../lib/commitments';
+import { prepareAppealJudgmentTarget } from '../lib/genlayer/caseCourtAppeals';
 import {
   createReadClient, readAppeal, readAppellateRuling, readCaseJudgment, readCase as readCaseSnapshot,
   readWebSource, trackTransactionLifecycle, writeContractMethod, type WalletSession,
@@ -54,7 +55,10 @@ export function CaseCourtPage() {
     setPending({ hash, label, onFinalized });
     void trackTransactionLifecycle(wallet.client, hash, (update) => {
       updateTransaction(hash, { ...update, storedLocally: false });
-      if (update.status === 'failed') setMessage(`${label} did not complete: ${update.detail}`);
+      if (update.status === 'failed') {
+        setPending(null);
+        setMessage(`${label} did not complete: ${update.detail}`);
+      }
       if (update.status === 'unknown') setMessage(`${label} status is unresolved: ${update.detail}`);
       if (update.status === 'finalized') {
         setPending(null);
@@ -73,6 +77,8 @@ export function CaseCourtPage() {
 
   const run: Runner = async (label, action, onFinalized) => {
     if (!wallet) { setMessage('Connect a Studionet wallet in Settings before submitting a transaction.'); return; }
+    if (pending) { setMessage(`Wait for ${pending.label} to reach a known terminal status before submitting a dependent write.`); return; }
+    if (busy) { setMessage('A transaction submission is already being prepared.'); return; }
     setMessage(''); setBusy(true);
     try {
       const hash = await action();
@@ -113,7 +119,7 @@ export function CaseCourtPage() {
     <Heading eyebrow="CASE LIFECYCLE / 04" title={<>Open, evidence,<br/><em>and adjudicate.</em></>}
       intro="Every control below sends a real transaction to the configured CaseCourt contract. FINALIZED + MAJORITY_AGREE + FINISHED_WITH_RETURN is required before any result is treated as accepted; a transaction can still fail or roll back after submission."
       side={<StatusTag tone={wallet ? 'good' : 'warn'}>{wallet ? 'WALLET CONNECTED' : 'CONNECT WALLET IN SETTINGS'}</StatusTag>} />
-    <DataNote>An accepted Equivalence Principle result is a protocol execution outcome, not a guarantee of legal correctness.</DataNote>
+    <DataNote>This fictional research prototype lets either named party submit and lock case evidence; it does not require respondent acknowledgement or define a response window. That is a bilateral fairness limitation, not a neutral court process. An accepted Equivalence Principle result is a protocol execution outcome, not a guarantee of legal correctness.</DataNote>
 
     <section className="settings-card">
       <SectionLabel index="A">CASE IDENTITY</SectionLabel>
@@ -130,7 +136,7 @@ export function CaseCourtPage() {
       evidenceTexts={evidenceTexts} setEvidenceTexts={setEvidenceTexts} />
     <JudgmentSection wallet={wallet} address={addresses.caseCourt} run={run} reload={loadCase} caseId={caseId}
       version={version} evidenceTexts={evidenceTexts} />
-    <AppealSection wallet={wallet} address={addresses.caseCourt} run={run} reload={loadCase} caseId={caseId} version={version} />
+    <AppealSection wallet={wallet} address={addresses.caseCourt} run={run} reload={loadCase} caseId={caseId} version={version} evidenceTexts={evidenceTexts} />
     <WebRenderSection wallet={wallet} address={addresses.caseCourt} run={run} caseId={caseId} />
 
     {message && <div role="status" className="inline-message">{message}{pending && <button type="button" className="button button--dark button--small" disabled={rechecking} onClick={() => void recheckPending()} style={{ marginLeft: 12 }}>{rechecking ? 'Checking…' : 'Check again'}</button>}</div>}
@@ -237,14 +243,18 @@ function JudgmentSection({ wallet, address, run, reload, caseId, version, eviden
   </section>;
 }
 
-function AppealSection({ wallet, address, run, reload, caseId, version }: {
+function AppealSection({ wallet, address, run, reload, caseId, version, evidenceTexts }: {
   wallet: WalletSession | null; address: string; run: Runner; reload: () => Promise<void>; caseId: string; version?: number;
+  evidenceTexts: Record<string, string>;
 }) {
   const [appealId, setAppealId] = useState('');
   const [groundsCode, setGroundsCode] = useState<'NEW_EVIDENCE' | 'MATERIAL_ERROR' | 'PROCEDURAL_CONCERN' | 'MISAPPLIED_CRITERIA'>('MATERIAL_ERROR');
   const [groundsText, setGroundsText] = useState('Fictional appeal grounds for review.');
   const [targetId, setTargetId] = useState('');
-  const [targetCommitment, setTargetCommitment] = useState('');
+  const [appealEvidenceId, setAppealEvidenceId] = useState('');
+  const [appealEvidenceText, setAppealEvidenceText] = useState('');
+  const [appealEvidenceTexts, setAppealEvidenceTexts] = useState<Record<string, string>>({});
+  const [appealMessage, setAppealMessage] = useState('');
   const [reviewer, setReviewer] = useState('');
   const [proposalCommitment, setProposalCommitment] = useState('');
   const [appeal, setAppeal] = useState<Record<string, string> | null>(null);
@@ -258,13 +268,35 @@ function AppealSection({ wallet, address, run, reload, caseId, version }: {
   }
   async function fileAppeal(event: FormEvent) {
     event.preventDefault();
-    if (!wallet || version === undefined) return;
-    const groundsDigest = await sha256Utf8(groundsText);
-    const actionId = newActionId('FILE');
-    await run(`File appeal ${appealId}`, () => writeContractMethod(wallet, address, 'file_appeal', [
-      caseId, version, actionId, appealId, 'JUDGMENT', targetId, version, targetCommitment, '',
-      groundsCode, groundsText, groundsDigest, '0'.repeat(64),
-    ]), reload);
+    if (!wallet || version === undefined || !validRecordId(targetId) || !validRecordId(appealId)) return;
+    setAppealMessage('');
+    try {
+      const client = await createReadClient();
+      const target = await readCaseJudgment(client, address, targetId);
+      const groundsDigest = await sha256Utf8(groundsText);
+      const preparedTarget = await prepareAppealJudgmentTarget(
+        target, caseId, appealId, targetId, wallet.address, groundsCode, groundsDigest,
+      );
+      const actionId = newActionId('FILE');
+      await run(`File appeal ${appealId}`, () => writeContractMethod(wallet, address, 'file_appeal', [
+        caseId, version, actionId, appealId, 'JUDGMENT', targetId, preparedTarget.target_version, preparedTarget.target_commitment, '',
+        groundsCode, groundsText, groundsDigest, preparedTarget.filing_commitment,
+      ]), reload);
+    } catch (error) {
+      setAppealMessage(error instanceof Error ? `Appeal filing stopped: ${error.message}` : 'Appeal target readback failed. Appeal filing stopped.');
+    }
+  }
+  async function appendAppealEvidence(event: FormEvent) {
+    event.preventDefault();
+    if (!wallet || version === undefined || !validRecordId(caseId) || !validRecordId(appealId)
+      || !validRecordId(appealEvidenceId) || !appealEvidenceText.trim()) return;
+    setAppealMessage('');
+    const digest = await sha256Utf8(appealEvidenceText);
+    const sourceDigest = await sha256Utf8(`APPEAL-SOURCE-REFERENCE: ${appealEvidenceId}`);
+    const id = appealEvidenceId; const text = appealEvidenceText;
+    await run(`Append appeal evidence ${id}`, () => writeContractMethod(wallet, address, 'append_appeal_evidence', [
+      caseId, appealId, version, newActionId('APEVID'), id, digest, 1, sourceDigest,
+    ]), () => { setAppealEvidenceTexts((prev) => ({ ...prev, [id]: text })); void reload(); void loadAppealReadback(); });
   }
   async function lockAppealEvidence() {
     if (!wallet || version === undefined) return;
@@ -282,6 +314,23 @@ function AppealSection({ wallet, address, run, reload, caseId, version }: {
     if (!wallet || version === undefined) return;
     await run(`Begin review of ${appealId}`, () => writeContractMethod(wallet, address, 'begin_appeal_review', [caseId, appealId, version, newActionId('BEGIN')]), reload);
   }
+  async function adjudicateAppeal() {
+    if (!wallet || version === undefined) return;
+    const originalEvidence = Object.entries(evidenceTexts).map(([evidence_id, text]) => ({ evidence_id, text }));
+    const addedEvidence = Object.entries(appealEvidenceTexts).map(([evidence_id, text]) => ({ evidence_id, text }));
+    if (!originalEvidence.length) { setAppealMessage('Original evidence text is unavailable. Reload/re-enter the exact committed evidence before adjudicating the appeal.'); return; }
+    const packet = JSON.stringify({ original_evidence: originalEvidence, appeal_evidence: addedEvidence });
+    await run(`Adjudicate appeal ${appealId}`, () => writeContractMethod(wallet, address, 'adjudicate_appeal', [
+      caseId, appealId, version, newActionId('APADJ'), groundsText, packet,
+    ]), () => { void reload(); void loadAppealReadback(); void loadRulingReadback(); });
+  }
+  const [ruling, setRuling] = useState<Record<string, string> | null>(null);
+  async function loadRulingReadback() {
+    if (!validRecordId(appealId)) return;
+    const client = await createReadClient();
+    const value = await readAppellateRuling(client, address, appealId);
+    setRuling(Object.keys(value).length ? value : null);
+  }
   async function resolveAppeal() {
     if (!wallet || version === undefined) return;
     const client = await createReadClient();
@@ -293,16 +342,21 @@ function AppealSection({ wallet, address, run, reload, caseId, version }: {
   return <section className="settings-card">
     <SectionLabel index="E">APPEAL &amp; MUTUALLY APPROVED REVIEWER</SectionLabel>
     <p>A reviewer must be a non-party, mutually proposed by one case party and approved by the other, before review can begin. Neither party can self-appoint, and only the bound reviewer may begin review or adjudicate.</p>
+    {appealMessage && <div role="status" className="inline-message">{appealMessage}</div>}
     <form className="form-row" onSubmit={fileAppeal}>
       <label>Appeal ID<input value={appealId} maxLength={48} onChange={(e) => setAppealId(e.target.value.toUpperCase())}/></label>
       <label>Target judgment ID<input value={targetId} maxLength={48} onChange={(e) => setTargetId(e.target.value.toUpperCase())}/></label>
-      <label>Target judgment commitment<input value={targetCommitment} onChange={(e) => setTargetCommitment(e.target.value)} placeholder="64-hex judgment_commitment"/></label>
       <label>Grounds code<select value={groundsCode} onChange={(e) => setGroundsCode(e.target.value as typeof groundsCode)}>
         <option value="NEW_EVIDENCE">NEW_EVIDENCE</option><option value="MATERIAL_ERROR">MATERIAL_ERROR</option>
         <option value="PROCEDURAL_CONCERN">PROCEDURAL_CONCERN</option><option value="MISAPPLIED_CRITERIA">MISAPPLIED_CRITERIA</option>
       </select></label>
       <label className="full-label">Grounds text<textarea value={groundsText} onChange={(e) => setGroundsText(e.target.value)} rows={2}/></label>
-      <button type="submit" className="button button--dark" disabled={!wallet || version === undefined}>Submit file_appeal <Icon name="arrow" size={14}/></button>
+      <button type="submit" className="button button--dark" disabled={!wallet || version === undefined || !validRecordId(caseId) || !validRecordId(targetId) || !validRecordId(appealId) || !groundsText.trim()}>Submit file_appeal <Icon name="arrow" size={14}/></button>
+    </form>
+    <form className="form-row" onSubmit={appendAppealEvidence}>
+      <label>Appeal evidence ID<input value={appealEvidenceId} maxLength={48} onChange={(e) => setAppealEvidenceId(e.target.value.toUpperCase())}/></label>
+      <label className="full-label">Appeal evidence text (exact bytes are committed)<textarea value={appealEvidenceText} onChange={(e) => setAppealEvidenceText(e.target.value)} rows={3}/></label>
+      <button type="submit" className="button button--dark button--small" disabled={!wallet || version === undefined || !validRecordId(caseId) || !validRecordId(appealId) || !validRecordId(appealEvidenceId) || !appealEvidenceText.trim()}>append_appeal_evidence</button>
     </form>
     <div className="form-row">
       <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void lockAppealEvidence()}>lock_appeal_evidence</button>
@@ -310,10 +364,13 @@ function AppealSection({ wallet, address, run, reload, caseId, version }: {
       <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void proposeReviewer()}>propose_appeal_reviewer</button>
       <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void approveReviewer()}>approve_appeal_reviewer (other party)</button>
       <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void beginReview()}>begin_appeal_review (reviewer only)</button>
+      <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void adjudicateAppeal()}>adjudicate_appeal (bound reviewer)</button>
+      <button type="button" className="button button--dark button--small" onClick={() => void loadRulingReadback()}>Load get_appellate_ruling</button>
       <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void resolveAppeal()}>resolve_appeal</button>
       <button type="button" className="button button--dark button--small" onClick={() => void loadAppealReadback()}>Load get_appeal readback</button>
     </div>
     <ReadbackCard title={`get_appeal("${appealId}")`} value={appeal} empty="No appeal loaded yet." />
+    <ReadbackCard title={`get_appellate_ruling("${appealId}")`} value={ruling} empty="No appellate ruling loaded yet." />
   </section>;
 }
 

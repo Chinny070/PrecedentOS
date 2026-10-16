@@ -1,8 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import vector from '../../../../tests/fixtures/appellate_commitment_vectors.json';
-import { computeAppealEvidenceCommitment, computeAppealFilingCommitment, computeAppellateInputCommitment, computeAppellateRulingCommitment, mayLabelAppellateRulingFinalized, type AppellateDecisionFields } from './caseCourtAppeals';
+import { computeAppealEvidenceCommitment, computeAppealFilingCommitment, computeAppellateInputCommitment, computeAppellateRulingCommitment, mayLabelAppellateRulingFinalized, prepareAppealJudgmentTarget, type AppellateDecisionFields } from './caseCourtAppeals';
 
 describe('CaseCourt appellate Python/TypeScript commitment vectors', () => {
+  it('uses the judgment readback original version and computes the filing commitment', async () => {
+    const prepared = await prepareAppealJudgmentTarget({
+      case_id: vector.case_id, case_version: String(vector.target_version), judgment_commitment: vector.target_commitment,
+    }, vector.case_id, vector.appeal_id, vector.target_id, vector.appellant, vector.grounds_code, vector.grounds_digest);
+    expect(prepared.target_version).toBe(vector.target_version);
+    expect(prepared.target_commitment).toBe(vector.target_commitment);
+    expect(prepared.filing_commitment).toBe(vector.filing_commitment);
+  });
+
+  it('rejects missing, mismatched, or malformed judgment readback fields', async () => {
+    await expect(prepareAppealJudgmentTarget({}, vector.case_id, vector.appeal_id, vector.target_id,
+      vector.appellant, vector.grounds_code, vector.grounds_digest)).rejects.toThrow('invalid_appeal_target_readback');
+    await expect(prepareAppealJudgmentTarget({
+      case_id: 'FICT-OTHER', case_version: String(vector.target_version), judgment_commitment: vector.target_commitment,
+    }, vector.case_id, vector.appeal_id, vector.target_id, vector.appellant, vector.grounds_code, vector.grounds_digest))
+      .rejects.toThrow('invalid_appeal_target_readback');
+  });
+
   it('matches filing, appeal-evidence, input, and ruling SHA-256 vectors', async () => {
     expect(await computeAppealFilingCommitment({ appeal_id: vector.appeal_id, case_id: vector.case_id, target_kind: 'JUDGMENT', target_id: vector.target_id, target_version: vector.target_version, target_commitment: vector.target_commitment, parent_appeal_id: '', appellant: vector.appellant, grounds_code: vector.grounds_code, grounds_digest: vector.grounds_digest })).toBe(vector.filing_commitment);
     expect(await computeAppealEvidenceCommitment(vector.case_id, vector.appeal_id, vector.appeal_evidence)).toBe(vector.appeal_evidence_commitment);

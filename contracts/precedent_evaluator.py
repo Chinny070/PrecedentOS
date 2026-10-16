@@ -227,6 +227,12 @@ class PrecedentEvaluator(gl.Contract):
                 for field in DECISION_FIELDS:
                     if leader_result_data[field] != validator_result_data[field]:
                         return False
+                # Findings and rationale are material outputs shown to users and
+                # stored with the decision. Require validator agreement so the
+                # leader cannot alone add narrative to agreed decision fields.
+                for field in ("similarities", "differences", "contradictions", "reasoning"):
+                    if leader_result_data[field] != validator_result_data[field]:
+                        return False
                 return True
             except Exception:
                 return False
