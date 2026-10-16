@@ -25,6 +25,14 @@ MAX_ACTION_ID_LENGTH = 48
 MAX_EVIDENCE_ID_LENGTH = 48
 MAX_CASE_TYPE_LENGTH = 64
 MAX_FREEZE_SECONDS = 86400
+# A stalled appeal (unresponsive reviewer, parties unable to agree on a
+# replacement) would otherwise freeze a case indefinitely: nothing short of
+# a recorded ruling or bilateral withdrawal could release it. This bounds
+# that exposure without granting either side, or any third party, the power
+# to decide the appeal's outcome by waiting it out -- a timeout only lapses
+# the appeal back to the state before it was filed (see lapse_stalled_appeal
+# and its exact parity with approve_appeal_withdrawal's restoration).
+APPEAL_FREEZE_MAX_SECONDS = 604800
 SUPPORTED_CRITERIA_VERSION = u32(1)
 SUPPORTED_JUDGMENT_SCHEMA_VERSION = u32(1)
 MAX_JUDGMENT_ID_LENGTH = 48
@@ -2168,7 +2176,7 @@ class CaseCourt(gl.Contract):
         snapshot["freeze_reason_digest"] = grounds_digest
         snapshot["frozen"] = True
         snapshot["frozen_by"] = sender
-        snapshot["freeze_until"] = 0
+        snapshot["freeze_until"] = self._now_unix() + APPEAL_FREEZE_MAX_SECONDS
         snapshot["phase"] = CASE_PHASE_FROZEN
         snapshot["version"] += 1
         snapshot = self._append_action(
@@ -2364,6 +2372,10 @@ class CaseCourt(gl.Contract):
         ])
         appeal["reviewer"] = str(appeal["reviewer_candidate"])
         appeal["reviewer_bound_at"] = self._now_iso()
+        # A newly bound reviewer gets a fresh window to actually review,
+        # rather than inheriting a clock that may have nearly lapsed during
+        # back-and-forth reviewer negotiation.
+        snapshot["freeze_until"] = self._now_unix() + APPEAL_FREEZE_MAX_SECONDS
         # Consume the proposal so this exact approval cannot be replayed once bound.
         appeal["reviewer_candidate"] = ""
         appeal["reviewer_proposal_commitment"] = ""
@@ -2684,6 +2696,56 @@ class CaseCourt(gl.Contract):
         snapshot["version"] += 1
         snapshot = self._append_action(
             snapshot, action_id, "APPEAL_WITHDRAWN_BY_BOTH_PARTIES", gl.message.sender_address,
+            expected_version, digest, appeal_id,
+        )
+        self.records[self._appeal_key(appeal_id)] = self._encode(appeal)
+        self.records[self._case_key(case_id)] = self._encode(snapshot)
+
+    @gl.public.write
+    def lapse_stalled_appeal(self, case_id: str, appeal_id: str, expected_version: u32, action_id: str) -> None:
+        """Release a case frozen by an appeal that neither resolved nor was bilaterally withdrawn.
+
+        This is a timeout, not a verdict: it does not uphold, reverse, or
+        otherwise decide the appeal. It only restores the case to exactly
+        the state it was in before the appeal was filed (mirroring
+        approve_appeal_withdrawal's own restoration), so the original
+        judgment or prior appellate ruling remains operative and a fresh
+        appeal may be filed again later if grounds still exist. Either case
+        party may call this once the bound freeze window has actually
+        elapsed; no third party and no unilateral power over the merits is
+        introduced.
+        """
+        self._validate_case_id(case_id)
+        self._validate_id(appeal_id, MAX_ACTION_ID_LENGTH, "invalid appeal identifier")
+        self._validate_action_id(action_id)
+        snapshot = self._get_case_or_revert(case_id)
+        appeal = self._get_active_appeal_or_revert(case_id, appeal_id, snapshot)
+        self._require_version(snapshot, expected_version)
+        self._require_party(snapshot)
+        if appeal["status"] not in ("PENDING_ADJUDICATION", "REVIEW_READY"):
+            raise gl.vm.UserError("appeal is not in a lapsable state")
+        if self._appellate_ruling_key(appeal_id) in self.records:
+            raise gl.vm.UserError("appeal already has a recorded ruling")
+        if self._now_unix() < int(snapshot.get("freeze_until", 0)):
+            raise gl.vm.UserError("appeal freeze window has not elapsed yet")
+        self._ensure_action_available(action_id, snapshot)
+        self._ensure_capacity(snapshot)
+        digest = self._payload_digest(["lapse_stalled_appeal", case_id, appeal_id, str(expected_version)])
+        appeal["status"] = "LAPSED_TIMEOUT"
+        appeal["lapsed_at"] = self._now_iso()
+        appeal["last_case_version"] = int(snapshot["version"]) + 1
+        snapshot["active_appeal_id"] = ""
+        snapshot["appeal_freeze"] = False
+        snapshot["frozen"] = False
+        snapshot["appeal_freeze_reason"] = "STALLED_TIMEOUT_LAPSE"
+        snapshot["appeal_freeze_digest"] = ""
+        snapshot["freeze_reason_digest"] = ""
+        snapshot["frozen_by"] = ZERO_ADDRESS.as_hex
+        snapshot["freeze_until"] = 0
+        snapshot["phase"] = CASE_PHASE_DECISION_RECORDED if str(appeal["target_kind"]) == "JUDGMENT" else CASE_PHASE_APPEAL_RESOLVED
+        snapshot["version"] += 1
+        snapshot = self._append_action(
+            snapshot, action_id, "APPEAL_LAPSED_TIMEOUT", gl.message.sender_address,
             expected_version, digest, appeal_id,
         )
         self.records[self._appeal_key(appeal_id)] = self._encode(appeal)

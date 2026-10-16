@@ -755,3 +755,74 @@ def test_shared_filing_commitment_vector_matches_contract_framing():
         ruling_schema_version=vector["ruling_schema_version"],
     ) == vector["appeal_input_commitment"]
     assert appellate_result_commitment(vector["appeal_input_commitment"], vector["result"], 1) == vector["ruling_commitment"]
+
+
+def test_stalled_appeal_cannot_lapse_before_the_freeze_window_elapses(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    _file_appeal(contract, direct_vm, direct_bob, case_id)
+    before = contract.get_case(case_id)
+    assert int(before["freeze_until"]) == 1893456000 + 604800
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("window has not elapsed yet"):
+        contract.lapse_stalled_appeal(case_id, "AP-LEVEL1", int(before["version"]), "AP-LAPSE-EARLY")
+    assert contract.get_case(case_id) == before
+
+
+def test_stalled_appeal_lapse_rejects_outsiders_and_parties_restore_prior_state(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie,
+):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    _file_appeal(contract, direct_vm, direct_bob, case_id)
+    direct_vm.warp("2030-01-08T00:00:01Z")
+    before = contract.get_case(case_id)
+
+    direct_vm.sender = direct_charlie
+    with direct_vm.expect_revert("caller is not a case participant"):
+        contract.lapse_stalled_appeal(case_id, "AP-LEVEL1", int(before["version"]), "AP-LAPSE-OUTSIDER")
+    assert contract.get_case(case_id) == before
+
+    direct_vm.sender = direct_alice
+    contract.lapse_stalled_appeal(case_id, "AP-LEVEL1", int(before["version"]), "AP-LAPSE")
+    restored = contract.get_case(case_id)
+    assert restored["phase"] == "DECISION_RECORDED"
+    assert restored["frozen"] == "false"
+    assert restored["appeal_freeze"] == "false"
+    assert restored["active_appeal_id"] == ""
+    assert restored["freeze_until"] == "0"
+    assert contract.get_appeal("AP-LEVEL1")["status"] == "LAPSED_TIMEOUT"
+
+
+def test_lapse_is_rejected_once_an_appellate_ruling_already_exists(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie,
+):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    _reach_pending_ruling(contract, direct_vm, direct_alice, direct_bob, case_id, reviewer=direct_charlie)
+    direct_vm.warp("2030-01-08T00:00:01Z")
+    case = contract.get_case(case_id)
+    direct_vm.sender = direct_bob
+    # Status is already PENDING_RESOLUTION once a ruling is recorded, so the
+    # state-machine guard rejects it before the explicit ruling-key check is
+    # ever reached; both guards independently block the same unsafe case.
+    with direct_vm.expect_revert("not in a lapsable state"):
+        contract.lapse_stalled_appeal(case_id, "AP-LEVEL1", int(case["version"]), "AP-LAPSE-AFTER-RULING")
+
+
+def test_binding_a_reviewer_refreshes_the_appeal_freeze_window(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie,
+):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    _file_appeal(contract, direct_vm, direct_bob, case_id)
+    direct_vm.sender = direct_bob
+    contract.lock_appeal_evidence(case_id, "AP-LEVEL1", int(contract.get_case(case_id)["version"]), "AP-RF-LOCK")
+    direct_vm.warp("2030-01-07T23:59:59Z")
+    _propose_and_bind_reviewer(contract, direct_vm, direct_bob, direct_alice, direct_charlie, case_id, action_prefix="AP-RF-RV")
+    refreshed = contract.get_case(case_id)
+    assert int(refreshed["freeze_until"]) > 1893456000 + 604800
