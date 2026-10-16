@@ -1,6 +1,6 @@
 # PrecedentOS 2.0 — Stage 7A Protocol Invariant Matrix
 
-**Evidence status:** verified from current source plus Direct Mode tests where named below. Runtime finality, live consensus, rollback and legal correctness are not verified. “Invariant holds locally” is not an on-chain proof.
+**Evidence status (current source, 2026-10-16):** verified from source plus Direct Mode tests where named below. A timeout-lapsed appeal may be refiled with fresh identities within a four-attempt cap; substantive appeal levels remain limited to two. Runtime finality, live consensus, rollback and legal correctness are not verified. “Invariant holds locally” is not an on-chain proof.
 
 | Invariant | Enforcing state/methods | Adversarial evidence | Result / unresolved condition |
 |---|---|---|---|

@@ -18,6 +18,8 @@ MAX_CRITERIA_LENGTH = 600
 MAX_RATIONALE_LENGTH = 400
 MAX_FINDING_COUNT = 4
 MAX_FINDING_LENGTH = 160
+MATERIAL_FINDING_CODES = ("RULE", "FACT", "PROCEDURE", "OUTCOME", "EXCEPTION", "CONFLICT")
+NON_AUTHORITATIVE_EXPLANATION = "Non-authoritative explanation omitted; rely on the agreed structured fields and cited evidence."
 CLASSIFICATIONS = (
     "material_similarity",
     "possible_contradiction",
@@ -56,7 +58,7 @@ class EvaluationRecord:
     reasoning: str
 
 
-def _pure_validate_model_result(value) -> dict[str, object]:
+def _pure_validate_model_result(value, sources=None) -> dict[str, object]:
     if not isinstance(value, dict):
         raise gl.vm.UserError("model result must be a JSON object")
     required = (
@@ -90,9 +92,9 @@ def _pure_validate_model_result(value) -> dict[str, object]:
         if type(value[field]) is not bool:
             raise gl.vm.UserError("model decision fields must be booleans")
 
-    similarities = _pure_validate_findings(value["similarities"], "similarities")
-    differences = _pure_validate_findings(value["differences"], "differences")
-    contradictions = _pure_validate_findings(value["contradictions"], "contradictions")
+    similarities = _pure_validate_findings(value["similarities"], "similarities", sources)
+    differences = _pure_validate_findings(value["differences"], "differences", sources)
+    contradictions = _pure_validate_findings(value["contradictions"], "contradictions", sources)
     reasoning = value["reasoning"]
     if not isinstance(reasoning, str) or not reasoning.strip() or len(reasoning) > MAX_RATIONALE_LENGTH:
         raise gl.vm.UserError("invalid model reasoning")
@@ -107,21 +109,48 @@ def _pure_validate_model_result(value) -> dict[str, object]:
         "similarities": similarities,
         "differences": differences,
         "contradictions": contradictions,
-        "reasoning": reasoning,
+        "reasoning": NON_AUTHORITATIVE_EXPLANATION,
     }
     if not _pure_consistent_decision(normalized):
         raise gl.vm.UserError("inconsistent model decision fields")
     return normalized
 
 
-def _pure_validate_findings(findings, label: str) -> list[str]:
+def _pure_validate_findings(findings, label: str, sources=None) -> list[dict[str, object]]:
     if not isinstance(findings, list) or len(findings) > MAX_FINDING_COUNT:
         raise gl.vm.UserError("invalid " + label + " list")
     normalized = []
+    seen = set()
     for finding in findings:
-        if not isinstance(finding, str) or not finding.strip() or len(finding) > MAX_FINDING_LENGTH:
+        if not isinstance(finding, dict) or set(finding) != {"code", "sources"}:
             raise gl.vm.UserError("invalid " + label + " item")
-        normalized.append(finding)
+        code, refs = finding["code"], finding["sources"]
+        if not isinstance(code, str) or code not in MATERIAL_FINDING_CODES or not isinstance(refs, list) or not 1 <= len(refs) <= 2:
+            raise gl.vm.UserError("invalid " + label + " item")
+        canonical_refs = []
+        used_refs = set()
+        for ref in refs:
+            if not isinstance(ref, dict) or set(ref) != {"scope", "source_id", "quote"}:
+                raise gl.vm.UserError("invalid " + label + " item")
+            scope, source_id, quote = ref["scope"], ref["source_id"], ref["quote"]
+            if (not isinstance(scope, str) or scope not in ("PRECEDENT_A", "PRECEDENT_B")
+                    or not isinstance(source_id, str) or not source_id or not isinstance(quote, str)
+                    or not quote.strip() or len(quote) > MAX_FINDING_LENGTH):
+                raise gl.vm.UserError("invalid " + label + " item")
+            key = (scope, source_id)
+            if (key in used_refs or (sources is not None and (key not in sources or quote not in sources[key]))):
+                raise gl.vm.UserError("invalid " + label + " item")
+            used_refs.add(key)
+            canonical_refs.append({"scope": scope, "source_id": source_id, "quote": quote})
+        canonical_refs.sort(key=lambda item: (item["scope"], item["source_id"], item["quote"]))
+        canonical = {"code": code, "sources": canonical_refs}
+        marker = json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        if marker in seen:
+            raise gl.vm.UserError("invalid " + label + " item")
+        seen.add(marker)
+        normalized.append(canonical)
+    normalized.sort(key=lambda item: (item["code"], json.dumps(item["sources"], sort_keys=True,
+                                                               separators=(",", ":"), ensure_ascii=True)))
     return normalized
 
 
@@ -212,11 +241,14 @@ class PrecedentEvaluator(gl.Contract):
             evidence_schema_version, criteria_version, criteria,
         )
 
-        def analyze():
+        def analyze() -> dict[str, object]:
             raw_result = gl.nondet.exec_prompt(prompt, response_format="json")
             # Use a module-level pure validator so this closure does not retain
             # the storage-backed contract instance.
-            return _pure_validate_model_result(raw_result)
+            return _pure_validate_model_result(raw_result, {
+                ("PRECEDENT_A", record_a_id): passage_a,
+                ("PRECEDENT_B", record_b_id): passage_b,
+            })
 
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
@@ -230,7 +262,7 @@ class PrecedentEvaluator(gl.Contract):
                 # Findings and rationale are material outputs shown to users and
                 # stored with the decision. Require validator agreement so the
                 # leader cannot alone add narrative to agreed decision fields.
-                for field in ("similarities", "differences", "contradictions", "reasoning"):
+                for field in ("similarities", "differences", "contradictions"):
                     if leader_result_data[field] != validator_result_data[field]:
                         return False
                 return True
@@ -239,7 +271,13 @@ class PrecedentEvaluator(gl.Contract):
 
         # The runtime only returns an accepted value after its Equivalence Principle.
         # Direct Mode tests below mock this boundary; they do not prove validator consensus.
-        accepted = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        accepted_result = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        if not isinstance(accepted_result, dict):
+            raise gl.vm.UserError("Equivalence Principle did not return an accepted evaluation object")
+        accepted: dict = _pure_validate_model_result(accepted_result, {
+            ("PRECEDENT_A", record_a_id): passage_a,
+            ("PRECEDENT_B", record_b_id): passage_b,
+        })
         next_count = u32(self.evaluation_count + 1)
         record = EvaluationRecord(
             evaluation_id=evaluation_id,
@@ -428,10 +466,12 @@ Return exactly one JSON object with these fields:
 - outcomes_differ: boolean
 - material_similarity: boolean
 - potential_contradiction: boolean
-- similarities: array of at most 4 concise factual strings
-- differences: array of at most 4 concise factual strings
-- contradictions: array of at most 4 concise factual strings
-- reasoning: concise explanation of at most 400 characters
+        - similarities, differences, contradictions: arrays of at most 4 objects, each exactly
+          {{"code":"RULE|FACT|PROCEDURE|OUTCOME|EXCEPTION|CONFLICT","sources":[{{"scope":"PRECEDENT_A|PRECEDENT_B",
+          "source_id":"exact matching record ID","quote":"exact contiguous quote, at most 160 characters"}}]}}
+        Every quote must appear byte-for-byte in the cited committed passage and directly support the coded finding.
+        Use both sources where the comparison requires it. Never invent a fact or cite an unrelated existing ID.
+        Sort sources by scope and ID, and findings by code then source list. reasoning is non-authoritative explanation only.
 
 Use insufficient_evidence if the passages do not provide enough information for a reliable comparison.
 Use possible_contradiction only when the same material issue has different outcomes and supplied differences do not adequately explain the divergence.

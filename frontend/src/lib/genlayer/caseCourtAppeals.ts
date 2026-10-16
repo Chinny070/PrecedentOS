@@ -1,15 +1,17 @@
 import { sha256Utf8, validDigest } from '../commitments';
+import { parseMaterialFindingsJson, pythonCompactJson } from './materialFindings';
 import type {
   CaseCourtAppealOutcome,
   CaseCourtAppealStatus,
   CaseCourtAppellateRuling,
   CaseJudgmentLifecycle,
+  MaterialFinding,
 } from '../../types/domain';
 
 const encoder = new TextEncoder();
 export const APPEAL_WRITE_GATE = 'DISABLED_RUNTIME_UNVERIFIED' as const;
 export const APPEAL_SCHEMA_VERSION = 1 as const;
-export const APPELLATE_RULING_SCHEMA_VERSION = 1 as const;
+export const APPELLATE_RULING_SCHEMA_VERSION = 2 as const;
 
 export interface AppealEvidenceReferenceInput {
   evidence_id: string;
@@ -86,8 +88,12 @@ export interface AppellateDecisionFields {
   remand_required: boolean;
   case_state_change: 'NONE' | 'SUPERSEDE' | 'REOPEN_REVIEW' | 'DISMISS_APPEAL' | 'NONFINAL_REOPEN';
   applicable_criteria: string[];
-  material_findings: string[];
+  material_findings: MaterialFinding[];
   reasoning_summary: string;
+}
+
+export function decodeAppellateMaterialFindings(raw: string) {
+  return parseMaterialFindingsJson(raw, ['ORIGINAL', 'APPEAL']);
 }
 
 export function encodeLengthPrefixedFields(fields: readonly string[]): string {
@@ -158,10 +164,10 @@ export async function computeAppellateRulingCommitment(
   if (!validDigest(inputCommitment)) throw new Error('invalid_appellate_input_commitment');
   const reasonsDigest = await sha256Utf8(result.reasoning_summary);
   return digestFields([
-    'PrecedentOS-APPELLATE-RESULT-v1', inputCommitment, String(APPELLATE_RULING_SCHEMA_VERSION),
+    'PrecedentOS-APPELLATE-RESULT-v2', inputCommitment, String(APPELLATE_RULING_SCHEMA_VERSION),
     result.outcome, String(result.original_judgment_valid), String(result.material_error_found),
     String(result.evidence_sufficient), String(result.reversal_justified), String(result.remand_required),
-    result.case_state_change, JSON.stringify(result.applicable_criteria), JSON.stringify(result.material_findings),
+    result.case_state_change, pythonCompactJson(result.applicable_criteria), pythonCompactJson(result.material_findings),
     reasonsDigest,
   ]);
 }

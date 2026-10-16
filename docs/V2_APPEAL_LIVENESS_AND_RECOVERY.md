@@ -2,6 +2,8 @@
 
 **Baseline:** `05fa708afa3d42ea17ba0408a107549963f6dc91`; local checks only. No runtime transaction, deployment, or finality observation.
 
+**Current source update (2026-10-16):** timeout-lapsed appeals now remain in immutable history and may be refiled against the same still-eligible target only with a fresh appeal ID, action ID, and filing commitment. Any non-lapsed prior filing for that target blocks refiling. Total filing attempts are capped at four per case; substantive levels remain capped at two. Direct Mode tests cover successful lapse/refile, replayed action rejection, active freeze, preserved judgment, and attempt-cap rejection. This does not add an independent reviewer, prove a native deadline/finality anchor, or remove the risk of an appeal remaining frozen until timeout recovery is submitted.
+
 ## Three separate state layers
 
 1. **CaseCourt application appeal status** is the contract field returned by `get_appeal` and `get_appeal_recovery_status`. Filing sets a CaseCourt freeze; application resolution or the existing bilateral pre-ruling withdrawal path releases it.
@@ -18,6 +20,7 @@ The new `get_appeal_recovery_status(case_id, appeal_id)` view reports applicatio
 - Pending native transactions must not be duplicated based on a frontend timeout. Wait for transaction lifecycle evidence or stop with status unknown.
 - `resolve_appeal` applies an already recorded ruling using an authorized case participant and exact ruling commitment. CaseCourt does not prove that the transaction recording that ruling is finalized.
 - The existing pre-adjudication withdrawal requires the appellant to request and the other party to approve. It cannot withdraw after a ruling exists and cannot be repurposed as unilateral recovery.
+- A timeout lapse is not a merits decision. Refiling creates a new appeal record with no inherited reviewer, evidence approvals, or action IDs; repeated lapsed attempts consume the fixed four-attempt case budget.
 - The ordinary time-limited case freeze is separate; it cannot clear an appeal freeze.
 
 ## Stuck-state scenarios

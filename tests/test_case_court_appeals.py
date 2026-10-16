@@ -30,7 +30,7 @@ def _answer(**overrides):
         "outcome": "UPHELD", "original_judgment_valid": True, "material_error_found": False,
         "evidence_sufficient": True, "reversal_justified": False, "remand_required": False,
         "case_state_change": "NONE", "applicable_criteria": ["JUDGMENT_VALIDITY", "EVIDENCE_SUFFICIENCY"],
-        "material_findings": ["The fictional record supports the original outcome."],
+        "material_findings": [{"code": "FACT", "sources": [{"scope": "ORIGINAL", "source_id": "FICT-EVIDENCE-NOTICE", "quote": "a dated notice was delivered to the fictional tenant"}]}],
         "reasoning_summary": "The stated grounds do not identify a material error in the fictional judgment.",
     }
     result.update(overrides)
@@ -53,7 +53,7 @@ def _open_judged(contract, vm, alice, bob, case_id=None):
     contract.lock_evidence(case_id, 3, "AP-LOCK")
     vm.clear_mocks()
     vm.mock_llm("bounded fictional case assessment", json.dumps({
-        "outcome_classification": "MERITS_SUPPORTED", "material_findings": ["Notice was documented."],
+        "outcome_classification": "MERITS_SUPPORTED", "material_findings": [{"code": "FACT", "sources": [{"scope": "CASE", "source_id": "FICT-EVIDENCE-NOTICE", "quote": "a dated notice was delivered to the fictional tenant"}]}],
         "evidence_sufficient": True, "material_issue_determined": True, "decision_eligible": True,
         "relevant_rule_application": "SATISFIED", "applicable_criteria": ["NOTICE"],
         "recommended_outcome": "GRANT", "reasoning_summary": "The fictional record meets the criterion.",
@@ -64,7 +64,7 @@ def _open_judged(contract, vm, alice, bob, case_id=None):
     return case_id
 
 
-def _file_appeal(contract, vm, appellant, case_id, appeal_id="AP-LEVEL1", grounds="The reviewer omitted a material fictional fact."):
+def _file_appeal(contract, vm, appellant, case_id, appeal_id="AP-LEVEL1", grounds="The reviewer omitted a material fictional fact.", action_id="AP-FILE"):
     snapshot = contract.get_case(case_id)
     judgment = contract.get_judgment("AP-JUDGMENT-1")
     grounds_digest = _digest(grounds)
@@ -72,7 +72,7 @@ def _file_appeal(contract, vm, appellant, case_id, appeal_id="AP-LEVEL1", ground
               judgment["case_version"], judgment["judgment_commitment"], "", "0x" + appellant.hex(), "MATERIAL_ERROR", grounds_digest]
     filing = _commit(fields)
     vm.sender = appellant
-    contract.file_appeal(case_id, int(snapshot["version"]), "AP-FILE", appeal_id, "JUDGMENT", judgment["judgment_id"],
+    contract.file_appeal(case_id, int(snapshot["version"]), action_id, appeal_id, "JUDGMENT", judgment["judgment_id"],
                          int(judgment["case_version"]), judgment["judgment_commitment"], "", "MATERIAL_ERROR", grounds,
                          grounds_digest, filing)
     return grounds, grounds_digest
@@ -145,7 +145,7 @@ def test_appeal_upheld_end_to_end_freeze_immutable_ruling_and_bilateral_closure(
         chain_id=int(ruling["chain_id"]), court_address=ruling["court_address"], case_id=case_id,
         appeal=appeal_record, original=original_record, case_version=int(ruling["case_version"]),
         original_root=ruling["evidence_commitment"], appeal_root=ruling["appeal_evidence_commitment"],
-        ruling_schema_version=1,
+        ruling_schema_version=2,
     ) == ruling["input_commitment"]
     accepted_result = {
         "outcome": ruling["outcome"],
@@ -159,7 +159,7 @@ def test_appeal_upheld_end_to_end_freeze_immutable_ruling_and_bilateral_closure(
         "material_findings": json.loads(ruling["material_findings_json"]),
         "reasoning_summary": ruling["reasoning_summary"],
     }
-    assert appellate_result_commitment(ruling["input_commitment"], accepted_result, 1) == ruling["ruling_commitment"]
+    assert appellate_result_commitment(ruling["input_commitment"], accepted_result, 2) == ruling["ruling_commitment"]
     assert appeal_evidence_commitment(case_id=case_id, appeal_id="AP-LEVEL1", references=[]) == ruling["appeal_evidence_commitment"]
     before_ruling = dict(ruling)
     direct_vm.sender = direct_bob
@@ -245,8 +245,20 @@ def test_validator_rejects_malicious_appellate_findings_from_leader(direct_vm, d
     contract = _deploy(direct_deploy)
     case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
     _reach_pending_ruling(contract, direct_vm, direct_alice, direct_bob, case_id, reviewer=direct_charlie)
-    malicious = _answer(material_findings=["The appellant fabricated all evidence, with no support in the record."])
+    malicious = _answer(material_findings=[{"code": "FACT", "sources": [{"scope": "ORIGINAL", "source_id": "FICT-EVIDENCE-NOTICE", "quote": "The appellant fabricated all evidence, with no support in the record."}]}])
     assert direct_vm.run_validator(leader_result=malicious) is False
+
+
+def test_equivalent_appellate_ruling_ignores_non_authoritative_prose_variation(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    _reach_pending_ruling(contract, direct_vm, direct_alice, direct_bob, case_id, reviewer=direct_charlie)
+    direct_vm.mock_llm("bounded fictional appellate assessment", json.dumps(
+        _answer(reasoning_summary="A separately worded explanation."), separators=(",", ":")
+    ))
+    assert direct_vm.run_validator() is True
+    ruling = contract.get_appellate_ruling("AP-LEVEL1")
+    assert ruling["reasoning_summary"].startswith("Non-authoritative explanation omitted")
 
 
 def test_nondeterministic_model_exception_does_not_append_a_ruling(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie, monkeypatch):
@@ -751,7 +763,7 @@ def test_shared_filing_commitment_vector_matches_contract_framing():
         original_root=vector["original_evidence_commitment"], appeal_root=vector["appeal_evidence_commitment"],
         ruling_schema_version=vector["ruling_schema_version"],
     ) == vector["appeal_input_commitment"]
-    assert appellate_result_commitment(vector["appeal_input_commitment"], vector["result"], 1) == vector["ruling_commitment"]
+    assert appellate_result_commitment(vector["appeal_input_commitment"], vector["result"], vector["ruling_schema_version"]) == vector["ruling_commitment"]
 
 
 def test_stalled_appeal_cannot_lapse_before_the_freeze_window_elapses(direct_vm, direct_deploy, direct_alice, direct_bob):
@@ -791,6 +803,52 @@ def test_stalled_appeal_lapse_rejects_outsiders_and_parties_restore_prior_state(
     assert restored["active_appeal_id"] == ""
     assert restored["freeze_until"] == "0"
     assert contract.get_appeal("AP-LEVEL1")["status"] == "LAPSED_TIMEOUT"
+
+
+def test_timeout_lapsed_target_can_be_refiled_with_fresh_identity_and_action(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    original = contract.get_judgment("AP-JUDGMENT-1")
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    _file_appeal(contract, direct_vm, direct_bob, case_id)
+    filed = contract.get_case(case_id)
+    direct_vm.warp("2030-01-08T00:00:01Z")
+    contract.lapse_stalled_appeal(case_id, "AP-LEVEL1", int(contract.get_case(case_id)["version"]), "AP-LAPSE-1")
+    assert contract.get_judgment("AP-JUDGMENT-1") == original
+    assert contract.get_appeal("AP-LEVEL1")["status"] == "LAPSED_TIMEOUT"
+    assert contract.get_case(case_id)["frozen"] == "false"
+    assert int(contract.get_case(case_id)["version"]) > int(filed["version"])
+
+    before_retry = contract.get_case(case_id)
+    with direct_vm.expect_revert("action identifier already used"):
+        _file_appeal(contract, direct_vm, direct_bob, case_id, appeal_id="AP-LEVEL1-RETRY-OLD-ACTION", action_id="AP-FILE")
+    assert contract.get_case(case_id) == before_retry
+    _file_appeal(contract, direct_vm, direct_bob, case_id, appeal_id="AP-LEVEL1-RETRY", action_id="AP-FILE-RETRY")
+    assert contract.get_case(case_id)["active_appeal_id"] == "AP-LEVEL1-RETRY"
+    assert contract.get_appeal("AP-LEVEL1-RETRY")["reviewer"] == ""
+    before = contract.get_case(case_id)
+    with direct_vm.expect_revert("case is frozen"):
+        _file_appeal(contract, direct_vm, direct_bob, case_id, appeal_id="AP-LEVEL1-RETRY-2", action_id="AP-FILE")
+    assert contract.get_case(case_id) == before
+
+
+def test_timeout_refiling_attempt_budget_is_bounded(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    deadline_passed = [
+        "2030-01-08T00:00:01Z", "2030-01-16T00:00:01Z",
+        "2030-01-24T00:00:01Z", "2030-02-01T00:00:01Z",
+    ]
+    for attempt in range(4):
+        appeal_id = f"AP-BOUNDED-{attempt}"
+        _file_appeal(contract, direct_vm, direct_bob, case_id, appeal_id=appeal_id, action_id=f"AP-FILE-{attempt}")
+        direct_vm.warp(deadline_passed[attempt])
+        contract.lapse_stalled_appeal(case_id, appeal_id, int(contract.get_case(case_id)["version"]), f"AP-LAPSE-{attempt}")
+    before = contract.get_case(case_id)
+    with direct_vm.expect_revert("appeal attempt limit reached"):
+        _file_appeal(contract, direct_vm, direct_bob, case_id, appeal_id="AP-BOUNDED-OVERFLOW", action_id="AP-FILE-OVERFLOW")
+    assert contract.get_case(case_id) == before
 
 
 def test_lapse_is_rejected_once_an_appellate_ruling_already_exists(

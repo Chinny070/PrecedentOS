@@ -53,9 +53,9 @@ def appellate_input_commitment(
 
 def appellate_result_commitment(input_commitment: str, result: Mapping[str, Any], ruling_schema_version: int) -> str:
     reasoning_digest = hashlib.sha256(str(result["reasoning_summary"]).encode("utf-8")).hexdigest()
-    compact = lambda value: json.dumps(value, separators=(",", ":"), ensure_ascii=True)
+    compact = lambda value: json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return sha256_fields([
-        "PrecedentOS-APPELLATE-RESULT-v1", input_commitment, str(ruling_schema_version), str(result["outcome"]),
+        "PrecedentOS-APPELLATE-RESULT-v2", input_commitment, str(ruling_schema_version), str(result["outcome"]),
         "true" if result["original_judgment_valid"] else "false",
         "true" if result["material_error_found"] else "false",
         "true" if result["evidence_sufficient"] else "false",

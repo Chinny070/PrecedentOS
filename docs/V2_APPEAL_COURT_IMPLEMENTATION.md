@@ -6,7 +6,7 @@ Stage 4 extends the existing CaseCourt-owned judgment model. It does not read or
 
 New cases use CaseCourt snapshot schema version 2 to add operative-decision, appeal-freeze and closure fields. CaseCourt is not upgradeable through this repository change; a previously deployed Stage 3B contract will not gain these methods or fields without a separately reviewed deployment/migration decision.
 
-CaseCourt deterministically admits only the opposing named participant against the current exact CaseCourt judgment (level 1) or the latest resolved level-1 appellate ruling (level 2). Eligibility failures revert before state changes; they are represented by the failed transaction, not by a successful on-chain “rejection record.” There is at most one active appeal and no more than two appeal filings in total per case. IDs, target versions and commitments, grounds bytes, appellant, case identity and filing commitment are checked.
+CaseCourt deterministically admits only the opposing named participant against the current exact CaseCourt judgment (level 1) or the latest resolved level-1 appellate ruling (level 2). Eligibility failures revert before state changes; they are represented by the failed transaction, not by a successful on-chain “rejection record.” There is at most one active appeal, no more than two substantive appellate levels, and at most four total filing attempts per case. A timeout-lapsed target may be refiled with fresh IDs and commitment; a withdrawn, active, or merits-resolved target cannot be replayed. IDs, target versions and commitments, grounds bytes, appellant, case identity and filing commitment are checked.
 
 ## Public write interface
 
@@ -37,7 +37,7 @@ The current API has no delete or edit method for a judgment or ruling. On revers
 ## Limitations
 
 - No deadline is applied. The project has not verified a supported finality anchor or stable transaction timestamp behavior.
-- If appellate execution cannot reach consensus, the active appeal remains frozen and can be retried. There is no timeout/unfreeze bypass; this preserves safety but creates a liveness risk.
+- If appellate execution cannot reach consensus, the case remains frozen until the permitted timeout lapse is submitted after its fixed window. Lapse is not an appellate verdict; it releases the freeze, retains the attempt in history, and permits a fresh filing only within the four-attempt total budget. Freeze duration and recovery transaction finality remain unverified on Studionet.
 - CaseCourt freeze blocks CaseCourt mutation methods only. It cannot freeze Registry/Evaluator, other contracts, pending external transactions, user wallets, or outside legal processes.
 - Appeal review is performed by the same participant set model as CaseCourt (the non-appellant case party triggers review); no independent judicial panel, identity proof, DAO, external counsel, or legal appeal rights are implemented.
 - Two total levels are supported; exceptional reconsideration is not.

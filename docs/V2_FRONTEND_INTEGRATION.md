@@ -1,11 +1,12 @@
 # PrecedentOS 2.0 Frontend Integration
 
-**Status:** proposed frontend scope; preserve current Chromatic Jurisprudence app and its existing routes. No frontend code is changed by Stage 0.
+**Status:** current frontend integration reference; preserve the existing Chromatic Jurisprudence app and routes. Web Render is disabled in the release, and wallet access uses injected EIP-1193 without the SDK Snap-dependent network-switch path.
 
 ## 1. Runtime boundary
 
 - Keep the application as a static Vite/React/TypeScript SPA.
 - Browser talks directly to GenLayer RPC/views through the pinned, verified-compatible GenLayerJS client and uses an injected EIP-1193 wallet for signed state-changing calls.
+- The user must select stable Studionet (chain `61999`) in the wallet before connection; wrong-chain connection is rejected without an automatic network switch or Snap request.
 - No custom backend, Supabase/Firebase, API server, database, hosted indexer, cloud function, or remote model endpoint.
 - Contract address configuration and transaction notes may be cached locally for convenience only. Revalidate network, account, address/schema, contract views, and transaction status when displaying authoritative state.
 - Fictional local demo fixtures remain usable without wallet/deployment and are permanently tagged as demo-only.

@@ -27,7 +27,10 @@ def _judgment_answer(outcome="GRANT"):
     supported = outcome == "GRANT"
     return {
         "outcome_classification": "MERITS_SUPPORTED" if supported else "MERITS_NOT_SUPPORTED",
-        "material_findings": ["Fictional notice fact."],
+        "material_findings": [{"code": "FACT", "sources": [{
+            "scope": "CASE", "source_id": "FICT-EVIDENCE-NOTICE",
+            "quote": "a dated notice was delivered to the fictional tenant",
+        }]}],
         "evidence_sufficient": True, "material_issue_determined": True, "decision_eligible": True,
         "relevant_rule_application": "SATISFIED" if supported else "NOT_SATISFIED",
         "applicable_criteria": ["NOTICE"],
@@ -424,7 +427,10 @@ def test_resolved_appeal_alone_can_append_reversal_and_preserves_original_and_ch
         "outcome": "REVERSED", "original_judgment_valid": False, "material_error_found": True,
         "evidence_sufficient": True, "reversal_justified": True, "remand_required": False,
         "case_state_change": "SUPERSEDE", "applicable_criteria": ["MATERIAL_ERROR"],
-        "material_findings": ["A fictional criterion was misapplied."],
+        "material_findings": [{"code": "RULE", "sources": [{
+            "scope": "ORIGINAL", "source_id": "FICT-EVIDENCE-NOTICE",
+            "quote": "a dated notice was delivered to the fictional tenant",
+        }]}],
         "reasoning_summary": "The fictional appellate review found a material error.",
     }
     direct_vm.clear_mocks()

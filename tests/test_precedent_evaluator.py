@@ -15,7 +15,16 @@ PROMPT_MARKER = "Compare these two fictional precedent packets"
 CASES = FIXTURE["cases"]
 CRITERIA = FIXTURE["criteria"]
 def answer_for(classification, *, similar, contradiction, enough=True, same_issue=True, outcomes_differ=False,
-               similarities=None, differences=None, contradictions=None, reasoning="Fictional evidence supports this bounded assessment."):
+               similarities=None, differences=None, contradictions=None, reasoning="Fictional evidence supports this bounded assessment.",
+               record_a_id="FICT-NOISE-0001", record_b_id="FICT-NOISE-0002", passage_a="A fictional record.", passage_b="A fictional record."):
+    def cited(items, code, both=False):
+        result = []
+        for index, _item in enumerate(items or []):
+            refs = [{"scope": "PRECEDENT_A", "source_id": record_a_id, "quote": passage_a[index:min(index + 120, len(passage_a))]}]
+            if both:
+                refs.append({"scope": "PRECEDENT_B", "source_id": record_b_id, "quote": passage_b[index:min(index + 120, len(passage_b))]})
+            result.append({"code": code, "sources": refs})
+        return result
     return {
         "classification": classification,
         "same_material_issue": same_issue,
@@ -23,36 +32,43 @@ def answer_for(classification, *, similar, contradiction, enough=True, same_issu
         "outcomes_differ": outcomes_differ,
         "material_similarity": similar,
         "potential_contradiction": contradiction,
-        "similarities": similarities if similarities is not None else ["same stated issue"],
-        "differences": differences if differences is not None else [],
-        "contradictions": contradictions if contradictions is not None else [],
+        "similarities": cited(similarities if similarities is not None else ["same stated issue"], "FACT", both=True),
+        "differences": cited(differences, "RULE", both=True),
+        "contradictions": cited(contradictions, "CONFLICT", both=True),
         "reasoning": reasoning,
     }
 
 
 def answer_for_case(name):
+    case = CASES[name]
+    shared = {"record_a_id": case["record_a_id"], "record_b_id": case["record_b_id"],
+              "passage_a": case["precedent_a"], "passage_b": case["precedent_b"]}
     if name == "matching":
         return answer_for(
             "material_similarity", similar=True, contradiction=False,
             similarities=["same quiet-hours rule", "amplified music after 22:00"],
+            **shared,
         )
     if name == "explained_outcome_difference":
         return answer_for(
             "material_similarity", similar=True, contradiction=False, outcomes_differ=True,
             similarities=["same quiet-hours rule", "work after 22:00"],
             differences=["an express emergency repair exception applies only in the second case"],
+            **shared,
         )
     if name == "unexplained_conflict":
         return answer_for(
             "possible_contradiction", similar=True, contradiction=True, outcomes_differ=True,
             similarities=["same walkway issue", "same stated rule", "same permit condition"],
             contradictions=["the same placement is treated as compliant and violating without a stated distinction"],
+            **shared,
         )
     if name == "insufficient":
         return answer_for(
             "insufficient_evidence", similar=False, contradiction=False, enough=False, same_issue=False,
             similarities=[], differences=[], contradictions=[],
             reasoning="The supplied excerpts omit the rule, facts, and outcomes needed to compare these cases.",
+            **shared,
         )
     raise AssertionError(name)
 
@@ -142,7 +158,11 @@ def test_frontend_sha256_and_commitment_vector_matches_python_contract(direct_vm
     assert _digest(vector["passageB"]) == vector["recordBDigest"]
     assert _input_commitment(args) == vector["inputCommitment"]
 
-    mock_result(direct_vm, answer_for_case("matching"))
+    mock_result(direct_vm, answer_for(
+        "material_similarity", similar=True, contradiction=False,
+        record_a_id=vector["recordAId"], record_b_id=vector["recordBId"],
+        passage_a=vector["passageA"], passage_b=vector["passageB"],
+    ))
     contract.evaluate_pair(*args)
     assert direct_vm.run_validator() is True
     assert contract.get_evaluation(vector["evaluationId"])["input_commitment"] == vector["inputCommitment"]
@@ -156,7 +176,7 @@ def test_similar_issue_with_explained_outcome_difference_is_not_labeled_contradi
     assert direct_vm.run_validator() is True
     stored = contract.get_evaluation("EVAL-EXPLAINED-OUTCOME-DIFFERENCE")
     assert stored["classification"] == "material_similarity"
-    assert json.loads(stored["differences_json"])[0].startswith("an express emergency")
+    assert json.loads(stored["differences_json"])[0]["sources"][0]["quote"] == CASES["explained_outcome_difference"]["precedent_a"][:120]
     assert json.loads(stored["decision_fields_json"])["outcomes_differ"] is True
     assert json.loads(stored["decision_fields_json"])["potential_contradiction"] is False
 
@@ -169,7 +189,8 @@ def test_unexplained_conflicting_outcomes_are_classified_as_possible_contradicti
     assert direct_vm.run_validator() is True
     stored = contract.get_evaluation("EVAL-UNEXPLAINED-CONFLICT")
     assert stored["classification"] == "possible_contradiction"
-    assert json.loads(stored["contradictions_json"])
+    assert json.loads(stored["contradictions_json"])[0]["code"] == "CONFLICT"
+    assert stored["reasoning"] == "Non-authoritative explanation omitted; rely on the agreed structured fields and cited evidence."
 
 
 def test_insufficient_evidence_is_a_persistable_advisory_classification(direct_vm, direct_deploy):
@@ -216,21 +237,21 @@ def test_validator_rejects_disagreement_on_decision_boolean_with_same_classifica
     assert direct_vm.run_validator() is False
 
 
-def test_validator_rejects_malicious_narrative_disagreement(direct_vm, direct_deploy):
+def test_validator_accepts_equivalent_result_with_different_non_authoritative_prose(direct_vm, direct_deploy):
     contract = deploy(direct_deploy)
     answer = answer_for_case("matching")
     evaluate(contract, direct_vm, "matching", answer)
     validator_answer = {**answer, "reasoning": "A separately worded short explanation."}
     mock_result(direct_vm, validator_answer)
 
-    assert direct_vm.run_validator() is False
+    assert direct_vm.run_validator() is True
 
 
 def test_validator_rejects_unsupported_finding_in_leader_narrative(direct_vm, direct_deploy):
     contract = deploy(direct_deploy)
     answer = answer_for_case("matching")
     evaluate(contract, direct_vm, "matching", answer)
-    malicious_leader = {**answer, "similarities": ["The evidence proves the agency acted unlawfully."]}
+    malicious_leader = {**answer, "similarities": [{"code": "FACT", "sources": [{"scope": "PRECEDENT_A", "source_id": CASES["matching"]["record_a_id"], "quote": "The evidence proves the agency acted unlawfully."}]}]}
     assert direct_vm.run_validator(leader_result=malicious_leader) is False
 
 

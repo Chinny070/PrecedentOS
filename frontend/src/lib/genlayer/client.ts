@@ -74,15 +74,8 @@ export async function connectInjectedWallet(provider = typeof window === 'undefi
   const address = checkedAccount(accounts[0]);
   const { createClient, studionet } = await loadSdk();
   const client = createClient({ chain: studionet, account: address, provider });
-  // v1.1.8 client.connect reads window.ethereum directly and may add/switch the
-  // network and request the GenLayer Snap. Skip that permission flow if already correct.
-  const initialChainId = parseChainId(await provider.request({ method: 'eth_chainId' }));
-  if (initialChainId !== TARGET_CHAIN_ID) {
-    if (typeof window === 'undefined' || window.ethereum !== provider) {
-      throw new Error('The pinned GenLayerJS network-switch helper requires this provider to be window.ethereum.');
-    }
-    await client.connect('studionet');
-  }
+  // EIP-1193 only: never trigger the SDK's network-switch/Snap permission flow.
+  // The user must select Studionet in their wallet before connecting.
   const active = await assertConnectedWallet(provider, address);
   return { ...active, client, provider };
 }

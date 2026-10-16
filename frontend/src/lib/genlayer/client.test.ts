@@ -80,19 +80,18 @@ describe('GenLayerJS 1.1.8 wallet and transaction adapter', () => {
   it('rejects an incorrect wallet chain after connect', async () => {
     const provider = providerFor({ request: vi.fn(async ({ method }: { method: string }) => method === 'eth_requestAccounts' || method === 'eth_accounts' ? [account] : '0x1') });
     await expect(connectWith(provider)).rejects.toThrow('requires stable Studionet 61999');
-    expect(sdkClient.connect).toHaveBeenCalledWith('studionet');
+    expect(sdkClient.connect).not.toHaveBeenCalled();
   });
 
-  it('invokes the SDK network switch only when initially off Studionet and rechecks identity', async () => {
-    let chain = '0x1';
+  it('connects through EIP-1193 without switching networks or requesting a Snap', async () => {
     const provider = providerFor({ request: vi.fn(async ({ method }: { method: string }) => {
       if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [account];
-      return chain;
+      return '0xf22f';
     }) });
-    sdkClient.connect.mockImplementation(async () => { chain = '0xf22f'; });
     const connected = await connectWith(provider);
     expect(connected.chainId).toBe(61999);
-    expect(sdkClient.connect).toHaveBeenCalledWith('studionet');
+    expect(sdkClient.connect).not.toHaveBeenCalled();
+    expect(provider.request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'wallet_switchEthereumChain' }));
   });
 
   it('blocks writes when the account or chain changed since connection', async () => {

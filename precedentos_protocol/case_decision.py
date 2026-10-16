@@ -255,7 +255,9 @@ def case_judgment_commitment(*, input_commitment: str, result: Mapping[str, obje
     )
     if set(result) != set(required):
         raise DecisionValidationError("invalid_case_judgment_result")
-    for name in ("material_findings", "applicable_criteria", "uncertainty_flags"):
+    if not _valid_canonical_findings(result["material_findings"]):
+        raise DecisionValidationError("invalid_case_judgment_findings")
+    for name in ("applicable_criteria", "uncertainty_flags"):
         if not isinstance(result[name], list) or any(not isinstance(item, str) for item in result[name]):
             raise DecisionValidationError("invalid_case_judgment_list")
     for name in ("evidence_sufficient", "material_issue_determined", "decision_eligible"):
@@ -266,7 +268,7 @@ def case_judgment_commitment(*, input_commitment: str, result: Mapping[str, obje
     reasons_digest = hashlib.sha256(str(result["reasoning_summary"]).encode("utf-8")).hexdigest()
     return _sha256_fields(
         [
-            "PrecedentOS-CASE-DECISION-RESULT-v1",
+            "PrecedentOS-CASE-DECISION-RESULT-v2",
             input_commitment,
             str(result["outcome_classification"]),
             str(result["recommended_outcome"]),
@@ -274,12 +276,47 @@ def case_judgment_commitment(*, input_commitment: str, result: Mapping[str, obje
             "true" if result["material_issue_determined"] else "false",
             "true" if result["decision_eligible"] else "false",
             str(result["relevant_rule_application"]),
-            json.dumps(result["material_findings"], separators=(",", ":")),
-            json.dumps(result["applicable_criteria"], separators=(",", ":")),
-            json.dumps(result["uncertainty_flags"], separators=(",", ":")),
+            json.dumps(result["material_findings"], sort_keys=True, separators=(",", ":")),
+            json.dumps(result["applicable_criteria"], sort_keys=True, separators=(",", ":")),
+            json.dumps(result["uncertainty_flags"], sort_keys=True, separators=(",", ":")),
             reasons_digest,
         ]
     )
+
+
+def _valid_canonical_findings(value: object) -> bool:
+    allowed_codes = {"FACT", "RULE", "PROCEDURE", "OUTCOME", "REMEDY", "CONFLICT"}
+    allowed_scopes = {"CASE", "ORIGINAL", "APPEAL", "PRECEDENT_A", "PRECEDENT_B"}
+    if not isinstance(value, list) or len(value) > 4:
+        return False
+    seen = set()
+    for item in value:
+        if (not isinstance(item, dict) or set(item) != {"code", "sources"}
+                or not isinstance(item["code"], str) or item["code"] not in allowed_codes):
+            return False
+        sources = item["sources"]
+        if not isinstance(sources, list) or not 1 <= len(sources) <= 2:
+            return False
+        refs = set()
+        for ref in sources:
+            if not isinstance(ref, dict) or set(ref) != {"scope", "source_id", "quote"}:
+                return False
+            scope, source_id, quote = ref["scope"], ref["source_id"], ref["quote"]
+            if (not isinstance(scope, str) or scope not in allowed_scopes or not isinstance(source_id, str) or not source_id
+                    or not isinstance(quote, str) or not quote.strip() or len(quote) > 180):
+                return False
+            key = (scope, source_id)
+            if key in refs:
+                return False
+            refs.add(key)
+        canonical_refs = sorted(sources, key=lambda ref: (ref["scope"], ref["source_id"], ref["quote"]))
+        if sources != canonical_refs:
+            return False
+        marker = json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        if marker in seen:
+            return False
+        seen.add(marker)
+    return True
 
 
 def validate_decision_candidate(

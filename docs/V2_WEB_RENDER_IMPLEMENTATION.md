@@ -1,5 +1,7 @@
 # Stage 5 — Web Render Implementation and Gate
 
+**Current release gate (2026-10-16): disabled.** The production contract constant is `False`; the CaseCourt interface disables all Web Render writes. The code and Direct Mode mocked-path tests remain for later runtime verification. No live page retrieval is claimed.
+
 ## Documented call shape
 
 Current GenLayer docs show `gl.nondet.web.render(url, mode='html')` and the FetchWebContent example explicitly shows `mode="text"` with optional `wait_after_loaded`. They place external access in nondeterministic execution and explain that leaders and validators independently fetch/render. Sources: [Web Access](https://docs.genlayer.com/developers/intelligent-contracts/features/web-access) and [FetchWebContent](https://docs.genlayer.com/developers/intelligent-contracts/examples/fetch-web-content).

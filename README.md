@@ -11,7 +11,7 @@ PrecedentOS is a fictional-case research prototype built with three GenLayer Int
 - `tests/` — Python Direct Mode tests and shared fictional fixtures; Direct Mode mocks do not prove live validator consensus or Studionet behavior.
 - `manual-deployment/` — user-maintained deployment material; intentionally untracked.
 
-The frontend targets stable Studionet chain ID `61999`. Current user-reported deployment addresses and verification evidence are in [the deployment manifest](docs/V2_DEPLOYMENT_MANIFEST.md); the repository has not independently matched deployed bytecode to source or fetched all receipts. The deployed CaseCourt does not inherit source changes made after its deployment.
+The frontend targets stable Studionet chain ID `61999`. Current user-reported deployment addresses and verification evidence are in [the deployment manifest](docs/V2_DEPLOYMENT_MANIFEST.md); the repository has not independently matched deployed bytecode to source or fetched all receipts. The current working source includes release changes that require a fresh CaseCourt deployment; the later user-reported address in the manifest must not be assumed to include them.
 
 ## Clean-clone setup (Windows PowerShell)
 
@@ -41,6 +41,14 @@ npm run typecheck
 npm test
 npm run build
 npm run dev
+```
+
+The browser smoke suite is an optional, pinned setup because Playwright's browser package is not part of the production frontend toolchain:
+
+```powershell
+npm install --no-save --package-lock=false @playwright/test@1.56.1
+npx playwright install chromium
+npm run test:e2e
 ```
 
 The three `VITE_GENLAYER_*_ADDRESS` values in `.env.local` are public addresses only. Never put private keys or secrets in Vite variables. Wallet writes require an injected wallet connected to Studionet and explicit user signatures. Demo fixtures are local examples and are never presented as chain readbacks.

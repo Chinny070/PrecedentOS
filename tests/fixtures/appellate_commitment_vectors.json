@@ -24,7 +24,7 @@
   "court_address": "0x2222222222222222222222222222222222222222",
   "case_version": 9,
   "original_evidence_commitment": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-  "appeal_input_commitment": "a56e0a67e419e1b9c91962c638a42cb8ab57b6642019f14e20662cc31c559df9",
+  "appeal_input_commitment": "a6e9c745c8d430aa95954d9bb015d049179a22a6f6a17167bc90c3fda4d09074",
   "result": {
     "outcome": "UPHELD",
     "original_judgment_valid": true,
@@ -38,10 +38,19 @@
       "EVIDENCE_SUFFICIENCY"
     ],
     "material_findings": [
-      "The original fictional judgment remains supported."
+      {
+        "code": "FACT",
+        "sources": [
+          {
+            "scope": "ORIGINAL",
+            "source_id": "FICT-EVIDENCE-1",
+            "quote": "Fictional evidence supports the original outcome."
+          }
+        ]
+      }
     ],
     "reasoning_summary": "Fictional appellate review found no material error."
   },
-  "ruling_schema_version": 1,
-  "ruling_commitment": "bb3371fb0d3cd6f88b6eb98f56281c297f270be6c2695ba0dd2a79adcf3924ab"
+  "ruling_schema_version": 2,
+  "ruling_commitment": "eee26d64a5368823a3019395a652ca5f65214b43f5000c768db55f1b71672825"
 }

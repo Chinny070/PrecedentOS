@@ -366,7 +366,7 @@ export interface CaseCourtAppellateRuling {
   appeal_evidence_commitment: string;
   criteria_version: string;
   criteria_digest: string;
-  appellate_schema_version: '1';
+  appellate_schema_version: '2';
   appeal_level: string;
   input_commitment: string;
   ruling_commitment: string;
@@ -428,9 +428,20 @@ export type CaseJudgmentLifecycle =
   | 'FAILED'
   | 'UNKNOWN';
 
+export type MaterialFindingCode = 'FACT' | 'RULE' | 'PROCEDURE' | 'OUTCOME' | 'REMEDY' | 'CONFLICT';
+export interface MaterialFindingReference {
+  scope: 'CASE' | 'ORIGINAL' | 'APPEAL' | 'PRECEDENT_A' | 'PRECEDENT_B';
+  source_id: string;
+  quote: string;
+}
+export interface MaterialFinding {
+  code: MaterialFindingCode;
+  sources: MaterialFindingReference[];
+}
+
 export interface CaseCourtJudgmentResult {
   outcome_classification: CaseJudgmentClassification;
-  material_findings: string[];
+  material_findings: MaterialFinding[];
   evidence_sufficient: boolean;
   material_issue_determined: boolean;
   decision_eligible: boolean;

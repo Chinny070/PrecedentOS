@@ -420,7 +420,7 @@ function WebRenderSection({ wallet, address, run, caseId }: {
 
   return <section className="settings-card">
     <SectionLabel index="F">WEB RENDER</SectionLabel>
-    <p>Only hosts on the deployed contract's curated allowlist (currently <code>genlayer.com</code>) may be registered. This does not independently verify the pinned GenVM runner's own redirect or egress handling — that remains unverified from this repository.</p>
+    <DataNote>Web Render is disabled in this release. The contract capture method fails closed before invoking the renderer. No registration, approval, capture request, or capture transaction can be initiated from this interface.</DataNote>
     <div className="form-row">
       <label>Source ID<input value={sourceId} maxLength={48} onChange={(e) => setSourceId(e.target.value.toUpperCase())}/></label>
       <label>Evidence ID<input value={evidenceId} maxLength={48} onChange={(e) => setEvidenceId(e.target.value.toUpperCase())}/></label>
@@ -429,10 +429,10 @@ function WebRenderSection({ wallet, address, run, caseId }: {
       <label>Current case version (for expected_version)<input type="number" min={1} value={expectedVersion} onChange={(e) => setExpectedVersion(e.target.value ? Number(e.target.value) : '')}/></label>
     </div>
     <div className="form-row">
-      <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void register()}>register_web_source</button>
-      <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void approve()}>approve_web_source (other party)</button>
-      <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void requestCapture()}>request_web_source_capture</button>
-      <button type="button" className="button button--dark button--small" disabled={!wallet} onClick={() => void capture()}>capture_web_source</button>
+      <button type="button" className="button button--dark button--small" disabled title="Web Render is disabled in this release." onClick={() => void register()}>register_web_source · disabled</button>
+      <button type="button" className="button button--dark button--small" disabled title="Web Render is disabled in this release." onClick={() => void approve()}>approve_web_source · disabled</button>
+      <button type="button" className="button button--dark button--small" disabled title="Web Render is disabled in this release." onClick={() => void requestCapture()}>request_web_source_capture · disabled</button>
+      <button type="button" className="button button--dark button--small" disabled title="Web Render is disabled in this release." onClick={() => void capture()}>capture_web_source · disabled</button>
       <button type="button" className="button button--dark button--small" onClick={() => void loadSource()}>Load get_web_source readback</button>
     </div>
     <ReadbackCard title={`get_web_source("${sourceId}", v${sourceVersion})`} value={source} empty="No web source loaded yet." />

@@ -21,25 +21,27 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-GENLAYER_CLI = shutil.which("genlayer")
-if GENLAYER_CLI is None:
-    raise SystemExit("The 'genlayer' CLI was not found on PATH. Install/activate it before running this script.")
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
+LOCAL_GENLAYER_PACKAGE = REPO_ROOT / "node_modules" / "genlayer"
+LOCAL_GENLAYER_PACKAGE_JSON = LOCAL_GENLAYER_PACKAGE / "package.json"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 FRONTEND_ENV_PATH = REPO_ROOT / "frontend" / ".env"
 MANIFEST_PATH = REPO_ROOT / "docs" / "V2_DEPLOYMENT_MANIFEST_STUDIONET_RUN.json"
 
 TARGET_NETWORK_ALIAS = "studionet"
 TARGET_CHAIN_ID = 61999
+TARGET_RPC_URL = "https://studio.genlayer.com/api"
+EXPECTED_CLI_VERSION = "0.39.1"
 
 CONTRACTS = [
     {"key": "registry", "path": CONTRACTS_DIR / "precedent_registry.py", "name": "PrecedentRegistry"},
@@ -55,9 +57,35 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def local_cli_command() -> list[str]:
+    """Resolve the pinned repository-local CLI without consulting global PATH."""
+    if not LOCAL_GENLAYER_PACKAGE_JSON.is_file():
+        raise RuntimeError(
+            "The repository-local GenLayer CLI is not installed. Install exactly "
+            "genlayer@0.39.1 from the repository root before using this script; "
+            "global CLI executables are never used."
+        )
+    package = json.loads(LOCAL_GENLAYER_PACKAGE_JSON.read_text(encoding="utf-8"))
+    if package.get("version") != EXPECTED_CLI_VERSION:
+        raise RuntimeError(
+            f"Repository-local GenLayer CLI is {package.get('version')!r}; expected {EXPECTED_CLI_VERSION}."
+        )
+    binary = package.get("bin")
+    relative_bin = binary if isinstance(binary, str) else (binary or {}).get("genlayer")
+    if not isinstance(relative_bin, str):
+        raise RuntimeError("Pinned GenLayer package does not declare its 'genlayer' executable.")
+    executable = (LOCAL_GENLAYER_PACKAGE / relative_bin).resolve()
+    if not executable.is_file() or not executable.is_relative_to(LOCAL_GENLAYER_PACKAGE.resolve()):
+        raise RuntimeError("Pinned GenLayer CLI executable is missing or escapes its local package directory.")
+    node = shutil.which("node")
+    if node is None:
+        raise RuntimeError("Node.js is required to invoke the repository-local GenLayer CLI.")
+    return [node, str(executable)]
+
+
 def run_cli(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess:
     print(f"$ genlayer {' '.join(args)}", flush=True)
-    result = subprocess.run([GENLAYER_CLI, *args], cwd=REPO_ROOT, capture_output=True, text=True)
+    result = subprocess.run([*local_cli_command(), *args], cwd=REPO_ROOT, capture_output=True, text=True)
     if result.stdout:
         print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
     if result.stderr:
@@ -90,18 +118,36 @@ class Plan:
 
 def gather_plan() -> Plan:
     plan = Plan()
+    version_result = run_cli(["--version"])
+    version_match = re.search(r"\b(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)\b", version_result.stdout + version_result.stderr)
+    if not version_match or version_match.group(1) != EXPECTED_CLI_VERSION:
+        raise RuntimeError(f"Local GenLayer CLI version is not exactly {EXPECTED_CLI_VERSION}.")
     network_info = run_cli(["network", "info"]).stdout
     match_chain = re.search(r"chainId:\s*'?(\d+)'?", network_info)
     match_alias = re.search(r"alias:\s*'([^']+)'", network_info)
     plan.chain_id = int(match_chain.group(1)) if match_chain else 0
     plan.network_name = match_alias.group(1) if match_alias else "unknown"
-    if plan.network_name != TARGET_NETWORK_ALIAS or plan.chain_id != TARGET_CHAIN_ID:
+    if plan.network_name != TARGET_NETWORK_ALIAS or plan.chain_id != TARGET_CHAIN_ID or TARGET_RPC_URL not in network_info:
         raise RuntimeError(
             f"Active CLI network is '{plan.network_name}' (chain {plan.chain_id}); "
-            f"expected '{TARGET_NETWORK_ALIAS}' (chain {TARGET_CHAIN_ID}). Run "
+            f"expected '{TARGET_NETWORK_ALIAS}' (chain {TARGET_CHAIN_ID}) at {TARGET_RPC_URL}. Run "
             f"'genlayer config network set {TARGET_NETWORK_ALIAS}' yourself before retrying; "
             "this script refuses to switch networks."
         )
+
+    rpc_request = urllib.request.Request(
+        TARGET_RPC_URL,
+        data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(rpc_request, timeout=8) as response:
+            rpc_payload = json.loads(response.read().decode("utf-8"))
+    except Exception as error:
+        raise RuntimeError(f"Independent stable Studionet eth_chainId check failed: {error}") from error
+    if str(rpc_payload.get("result", "")).lower() != "0xf22f":
+        raise RuntimeError(f"Stable Studionet eth_chainId returned {rpc_payload.get('result')!r}; expected 0xf22f.")
 
     account_info = run_cli(["account"]).stdout
     match_name = re.search(r"name:\s*'([^']+)'", account_info)
@@ -159,9 +205,22 @@ def extract_address_and_hash(stdout: str) -> tuple[str | None, str | None]:
 def deploy_one(entry: dict, manifest: dict) -> None:
     key = entry["key"]
     existing = manifest["contracts"].get(key)
-    if existing and existing.get("status") == "finalized":
-        print(f"[skip] {entry['name']} already recorded as finalized at {existing['address']} (tx {existing['tx_hash']})")
-        return
+    if existing:
+        status = existing.get("status")
+        if status in {"broadcast", "receipt_unconfirmed", "finalized_address_unconfirmed", "unresolved"}:
+            raise RuntimeError(
+                f"{entry['name']} has an unresolved earlier deployment record ({status}); resolve its transaction "
+                "before any further broadcast."
+            )
+        if status == "finalized" and existing.get("source_sha256") == sha256_file(entry["path"]):
+            deployed_code = run_cli(["code", str(existing.get("address", ""))])
+            if hashlib.sha256(deployed_code.stdout.encode("utf-8")).hexdigest() != existing["source_sha256"]:
+                raise RuntimeError(
+                    f"Recorded {entry['name']} source hash matches local source, but deployed code could not be "
+                    "proven byte-identical; refusing to report it as reusable."
+                )
+            print(f"[skip] {entry['name']} source matches deployment at {existing['address']} (tx {existing['tx_hash']})")
+            return
 
     print(f"\n--- Deploying {entry['name']} ({entry['path'].relative_to(REPO_ROOT)}) ---")
     result = run_cli(["deploy", "--contract", str(entry["path"])])
@@ -285,6 +344,15 @@ def main() -> int:
         return 0
 
     manifest = load_manifest()
+    if args.execute:
+        expected_deployer = os.environ.get("PRECEDENTOS_EXPECTED_DEPLOYER_ADDRESS", "").lower()
+        if not ADDRESS_RE.fullmatch(expected_deployer):
+            raise RuntimeError("Set PRECEDENTOS_EXPECTED_DEPLOYER_ADDRESS to the intended public signer address before execution.")
+        if expected_deployer != plan.wallet_address.lower():
+            raise RuntimeError("The active CLI signer does not match PRECEDENTOS_EXPECTED_DEPLOYER_ADDRESS.")
+        for key, record in manifest.get("contracts", {}).items():
+            if record.get("status") in {"broadcast", "receipt_unconfirmed", "finalized_address_unconfirmed", "unresolved"}:
+                raise RuntimeError(f"Unresolved prior broadcast for {key}; investigate its hash before deploying anything else.")
     manifest["wallet_address"] = plan.wallet_address
     manifest["wallet_name"] = plan.wallet_name
     confirmation = input(

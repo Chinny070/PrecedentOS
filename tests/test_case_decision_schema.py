@@ -13,6 +13,7 @@ from precedentos_protocol.case_decision import (
     append_decision_history,
     case_decision_input_commitment,
     case_decision_result_digest,
+    case_judgment_commitment,
     case_evidence_commitment,
     normalize_authority_status,
     resolve_decision_reference,
@@ -23,6 +24,7 @@ from precedentos_protocol.case_decision import (
 
 
 VECTOR = json.loads((Path(__file__).parent / "fixtures" / "case_decision_vectors.json").read_text(encoding="utf-8"))
+JUDGMENT_VECTOR = json.loads((Path(__file__).parents[1] / "frontend" / "src" / "lib" / "case_judgment_commitment_vectors.json").read_text(encoding="utf-8"))
 ADDR_A = "0x" + "1" * 40
 ADDR_B = "0x" + "2" * 40
 
@@ -89,6 +91,16 @@ def test_cross_language_case_evidence_input_and_result_vectors():
         recommended_outcome=VECTOR["recommended_outcome"], evidence_sufficient=VECTOR["evidence_sufficient"],
         reasons_digest=VECTOR["reasons_digest"],
     ) == VECTOR["result_digest"]
+
+
+def test_cross_language_case_judgment_canonical_finding_commitment_vector():
+    assert case_judgment_commitment(
+        input_commitment=JUDGMENT_VECTOR["input_commitment"], result=JUDGMENT_VECTOR["result"]
+    ) == JUDGMENT_VECTOR["result_commitment"]
+    unsupported = json.loads(json.dumps(JUDGMENT_VECTOR["result"]))
+    unsupported["material_findings"][0]["sources"][0]["source_id"] = []
+    with pytest.raises(DecisionValidationError, match="invalid_case_judgment_findings"):
+        case_judgment_commitment(input_commitment=JUDGMENT_VECTOR["input_commitment"], result=unsupported)
 
 
 def test_candidate_with_matching_case_evidence_versions_and_contract_identity_is_structurally_valid():

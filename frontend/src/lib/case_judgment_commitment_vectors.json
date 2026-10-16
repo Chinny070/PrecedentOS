@@ -1,0 +1,30 @@
+{
+  "description": "Cross-language canonical-finding result commitment; fictional deterministic values only.",
+  "input_commitment": "1111111111111111111111111111111111111111111111111111111111111111",
+  "result": {
+    "outcome_classification": "MERITS_SUPPORTED",
+    "material_findings": [
+      {
+        "code": "FACT",
+        "sources": [
+          {
+            "scope": "CASE",
+            "source_id": "FICT-EVIDENCE-1",
+            "quote": "Fictional fact excerpt."
+          }
+        ]
+      }
+    ],
+    "evidence_sufficient": true,
+    "material_issue_determined": true,
+    "decision_eligible": true,
+    "relevant_rule_application": "SATISFIED",
+    "applicable_criteria": [
+      "NOTICE"
+    ],
+    "recommended_outcome": "GRANT",
+    "reasoning_summary": "Non-authoritative explanation omitted; rely on the agreed structured fields and cited evidence.",
+    "uncertainty_flags": []
+  },
+  "result_commitment": "b5a0268699bfea5757c176b12b86d9242f6bda9d9a6f101b4fbbb8d46d758251"
+}

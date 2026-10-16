@@ -72,7 +72,10 @@ def _open_judged_case(contract, vm, alice, bob, case_id):
     contract.lock_evidence(case_id, len(fixture["evidence"]) + 1, f"{case_id}-LOCK")
     vm.clear_mocks()
     vm.mock_llm("bounded fictional case assessment", json.dumps({
-        "outcome_classification": "MERITS_SUPPORTED", "material_findings": ["Notice was documented."],
+        "outcome_classification": "MERITS_SUPPORTED", "material_findings": [{"code": "FACT", "sources": [{
+            "scope": "CASE", "source_id": "FICT-EVIDENCE-NOTICE",
+            "quote": "a dated notice was delivered to the fictional tenant",
+        }]}],
         "evidence_sufficient": True, "material_issue_determined": True, "decision_eligible": True,
         "relevant_rule_application": "SATISFIED", "applicable_criteria": ["NOTICE"],
         "recommended_outcome": "GRANT", "reasoning_summary": "The fictional record meets the criterion.",
@@ -156,6 +159,7 @@ def test_web_render_can_still_be_force_disabled_and_rejected_attempt_preserves_r
 ):
     contract = direct_deploy(str(CONTRACT))
     module = importlib.import_module(contract.__class__.__module__)
+    assert module.WEB_RENDER_RUNTIME_ENABLED is False
     monkeypatch.setattr(module, "WEB_RENDER_RUNTIME_ENABLED", False)
     _open_case(contract, direct_vm, direct_alice, direct_bob)
     _register_case_source(contract, direct_vm, direct_alice, direct_bob)
@@ -508,7 +512,10 @@ def test_appeal_freeze_requires_mutual_withdrawal_and_cannot_replay_target(
     contract.lock_evidence(case_id, 3, "WITHDRAW-LOCK")
     direct_vm.clear_mocks()
     direct_vm.mock_llm("bounded fictional case assessment", json.dumps({
-        "outcome_classification": "MERITS_SUPPORTED", "material_findings": ["Notice was documented."],
+        "outcome_classification": "MERITS_SUPPORTED", "material_findings": [{"code": "FACT", "sources": [{
+            "scope": "CASE", "source_id": "FICT-EVIDENCE-NOTICE",
+            "quote": "a dated notice was delivered to the fictional tenant",
+        }]}],
         "evidence_sufficient": True, "material_issue_determined": True, "decision_eligible": True,
         "relevant_rule_application": "SATISFIED", "applicable_criteria": ["NOTICE"],
         "recommended_outcome": "GRANT", "reasoning_summary": "The fictional record meets the criterion.",
@@ -550,7 +557,7 @@ def test_appeal_freeze_requires_mutual_withdrawal_and_cannot_replay_target(
     assert contract.get_case_action_count(case_id) == int(before[2]) + 2
     assert contract.get_judgment("WITHDRAW-J") == judgment_before
     assert contract.get_appeal_filing("WITHDRAW-APPEAL")["filing_commitment"] == filing
-    with direct_vm.expect_revert("target already has an appeal filing"):
+    with direct_vm.expect_revert("non-lapsed appeal filing"):
         snapshot = contract.get_case(case_id)
         contract.file_appeal(case_id, int(snapshot["version"]), "WITHDRAW-REPLAY", "WITHDRAW-AGAIN", "JUDGMENT",
                              "WITHDRAW-J", int(judgment_before["case_version"]), judgment_before["judgment_commitment"],
@@ -585,7 +592,10 @@ def test_mutual_withdrawal_cannot_replace_an_accepted_appellate_ruling(
         "outcome": "UPHELD", "original_judgment_valid": True, "material_error_found": False,
         "evidence_sufficient": True, "reversal_justified": False, "remand_required": False,
         "case_state_change": "NONE", "applicable_criteria": ["JUDGMENT_VALIDITY", "EVIDENCE_SUFFICIENCY"],
-        "material_findings": ["The fictional record supports the original outcome."],
+        "material_findings": [{"code": "FACT", "sources": [{
+            "scope": "ORIGINAL", "source_id": "FICT-EVIDENCE-NOTICE",
+            "quote": "a dated notice was delivered to the fictional tenant",
+        }]}],
         "reasoning_summary": "The stated fictional grounds do not identify a material error.",
     }, separators=(",", ":")))
     packet = {"original_evidence": fixture["evidence"], "appeal_evidence": []}

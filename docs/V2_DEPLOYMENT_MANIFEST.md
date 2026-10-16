@@ -185,3 +185,13 @@ The previous CaseCourt address (`0xE084a96fbF8B42c7A9885fFABBa3b6C4076772C8`) re
 **Smoke test:** `get_case_count()` → `0`, consistent with a fresh deployment.
 
 What changed versus the prior CaseCourt source: `lapse_stalled_appeal` (a bounded, non-decisional timeout for a stalled appeal freeze) and the mutual-reviewer-approval appeal governance from the earlier commit on this branch. No other behavior changed. The frontend's `VITE_GENLAYER_CASECOURT_ADDRESS` (local `.env` and the Vercel production environment variable) now points at this new address; Registry and Evaluator are unchanged and still point at their existing addresses.
+
+## Later user-reported CaseCourt deployment — 2026-10-16
+
+This later Studio deployment supersedes earlier CaseCourt candidates for the user's manual demonstration, but is **not** a deployment of the current working tree after the release changes in progress here.
+
+- Address: `0x7B6DA3Fe9CF8D4a7F81Ad760ADb45c37D99211EC`.
+- Deployment receipt: user screenshot showed a finalized accepted deployment with GenVM success; the transaction was abbreviated as `0x548b6613...78d4e088`, so the full deployment hash is not recorded here.
+- User-reported `open_case` on `FICT-CASE-STUDIO-004`: `0x8e38c30ebfa33bd17cbbd97006887b96b202d0cd51ec833f499983cc03ed04a4`.
+- Two later CLI `append_evidence` attempts were finalized with `NO_MAJORITY`, zero rounds/votes, and no GenVM execution. They are failed attempts, not evidence submissions or lifecycle success: `0x6b7901f040b5d2705162da0486076a52cc351b76220e846e2e035d37b95fc75d` and `0xb29f1daaefbe3bbbd522418d99b675f465e81f93aa3b9bbeafd3e29f82ec8ffb`.
+- The deployment address and open-case hash are user-reported Studio evidence. Deployed source bytes, the full deployment receipt, and parity with the current working tree remain unverified. Do not use the failed append attempts as a basis for expected versions without a fresh authoritative `get_case` read.

@@ -10,7 +10,7 @@ SUPPORTED_CASE_SCHEMA_VERSION = u32(3)
 SUPPORTED_POLICY_VERSION = u32(1)
 SUPPORTED_EVIDENCE_SCHEMA_VERSION = u32(1)
 APPEAL_SCHEMA_VERSION = u32(1)
-APPELLATE_RULING_SCHEMA_VERSION = u32(1)
+APPELLATE_RULING_SCHEMA_VERSION = u32(2)
 WEB_SOURCE_SCHEMA_VERSION = u32(1)
 WEB_VERIFICATION_SCHEMA_VERSION = u32(1)
 WEB_COMPARISON_SCHEMA_VERSION = u32(1)
@@ -34,7 +34,7 @@ MAX_FREEZE_SECONDS = 86400
 # and its exact parity with approve_appeal_withdrawal's restoration).
 APPEAL_FREEZE_MAX_SECONDS = 604800
 SUPPORTED_CRITERIA_VERSION = u32(1)
-SUPPORTED_JUDGMENT_SCHEMA_VERSION = u32(1)
+SUPPORTED_JUDGMENT_SCHEMA_VERSION = u32(2)
 MAX_JUDGMENT_ID_LENGTH = 48
 MAX_JUDGMENT_PACKET_LENGTH = 9000
 MAX_JUDGMENT_EVIDENCE_LENGTH = 1800
@@ -49,7 +49,9 @@ MAX_APPEAL_FINDINGS = 4
 MAX_APPEAL_FINDING_LENGTH = 180
 MAX_APPELLATE_REASONING_LENGTH = 500
 MAX_APPEAL_LEVEL = u32(2)
-MAX_APPEALS_PER_CASE = u32(2)
+# A case may have two substantive appellate levels, while timeout-lapsed
+# filings consume a separate bounded attempt budget to prevent freeze abuse.
+MAX_APPEAL_ATTEMPTS_PER_CASE = u32(4)
 MAX_WEB_SOURCES_PER_CASE = u32(12)
 MAX_WEB_SOURCE_VERSIONS = u32(4)
 MAX_WEB_SOURCE_COMPARISONS = u32(8)
@@ -69,6 +71,8 @@ MAX_CHALLENGE_TEXT_LENGTH = 800
 MAX_CHALLENGE_GROUNDS_LENGTH = 600
 MAX_CONTRADICTION_REASONING_LENGTH = 500
 MAX_JUDGMENT_UNCERTAINTY_FLAGS = 4
+MATERIAL_FINDING_CODES = ("FACT", "RULE", "PROCEDURE", "OUTCOME", "REMEDY", "CONFLICT")
+NON_AUTHORITATIVE_EXPLANATION = "Non-authoritative explanation omitted; rely on the agreed structured fields and cited evidence."
 # The documented render API is present in the pinned py-genlayer dependency.
 # This repository cannot inspect the pinned GenVM runner's own redirect,
 # DNS-rebinding, or egress enforcement: that behavior lives inside the
@@ -77,7 +81,7 @@ MAX_JUDGMENT_UNCERTAINTY_FLAGS = 4
 # allowlist (ALLOWED_WEB_RENDER_HOST_SUFFIXES below): only URLs on those
 # curated, already-public, stable hosts may be registered at all. Treat the
 # runner's own network isolation as unverified, not as proven safe.
-WEB_RENDER_RUNTIME_ENABLED = True
+WEB_RENDER_RUNTIME_ENABLED = False
 # Curated for the bounded fictional Studionet demonstration only. Each entry
 # is an exact host or a dotted suffix; a URL's host must equal one of these
 # or end with one preceded by a dot. Keep this list short and reviewed.
@@ -250,7 +254,12 @@ def _pure_validate_web_capture_result(value) -> dict[str, object]:
 
 def _pure_web_capture_signature(result: dict[str, object]) -> list[tuple[str, str, str]]:
     signatures = []
-    for claim in result["claims"]:
+    claims = result["claims"]
+    if not isinstance(claims, list):
+        raise gl.vm.UserError("invalid Web Render claim list")
+    for claim in claims:
+        if not isinstance(claim, dict):
+            raise gl.vm.UserError("invalid Web Render claim")
         signatures.append((str(claim["fact_kind"]), str(claim["polarity"]),
                            hashlib.sha256(str(claim["excerpt"]).encode("utf-8")).hexdigest()))
     signatures.sort()
@@ -359,11 +368,14 @@ def _pure_build_appeal_prompt(
         "original_judgment_valid (boolean), material_error_found (boolean), evidence_sufficient (boolean), "
         "reversal_justified (boolean), remand_required (boolean), case_state_change (NONE, SUPERSEDE, "
         "REOPEN_REVIEW, DISMISS_APPEAL, NONFINAL_REOPEN), applicable_criteria (unique allowed codes), "
-        "material_findings (at most four short strings), reasoning_summary (at most 500 characters)."
+        "material_findings (array of at most four objects: {code: FACT|RULE|PROCEDURE|OUTCOME|REMEDY|CONFLICT, "
+        "sources: [{scope: ORIGINAL|APPEAL, source_id: exact evidence_id, quote: exact contiguous quote from that "
+        "source}]}; use only relevant, directly supporting quotes, never paraphrase or invent a fact. Sort findings "
+        "by code then canonical source order. reasoning_summary is non-authoritative explanation only and may vary."
     )
 
 
-def _pure_validate_appellate_result(value) -> dict[str, object]:
+def _pure_validate_appellate_result(value, sources=None) -> dict[str, object]:
     required = (
         "outcome", "original_judgment_valid", "material_error_found", "evidence_sufficient",
         "reversal_justified", "remand_required", "case_state_change", "applicable_criteria",
@@ -377,7 +389,10 @@ def _pure_validate_appellate_result(value) -> dict[str, object]:
         if type(value[name]) is not bool:
             raise gl.vm.UserError("appellate decision fields must be booleans")
     criteria = _pure_validate_judgment_enum_list(value["applicable_criteria"], APPELLATE_CRITERIA_CODES, "appellate criteria")
-    findings = _pure_validate_judgment_string_list(value["material_findings"], MAX_APPEAL_FINDINGS, MAX_APPEAL_FINDING_LENGTH, "appellate findings", allow_empty=True)
+    findings = _pure_validate_material_findings(
+        value["material_findings"], sources, MAX_APPEAL_FINDINGS, MAX_APPEAL_FINDING_LENGTH,
+        "appellate findings", allow_empty=True,
+    )
     reasoning = value["reasoning_summary"]
     if not isinstance(reasoning, str) or not reasoning.strip() or len(reasoning) > MAX_APPELLATE_REASONING_LENGTH:
         raise gl.vm.UserError("invalid appellate reasoning summary")
@@ -397,7 +412,7 @@ def _pure_validate_appellate_result(value) -> dict[str, object]:
     if value["outcome"] in ("REVERSED", "REMANDED") and not findings:
         raise gl.vm.UserError("appellate merits outcome requires material findings")
     return {**{name: value[name] for name in required[:7]}, "applicable_criteria": criteria,
-            "material_findings": findings, "reasoning_summary": reasoning}
+            "material_findings": findings, "reasoning_summary": NON_AUTHORITATIVE_EXPLANATION}
 
 
 def _pure_validate_digest(value: str, error: str) -> None:
@@ -416,17 +431,22 @@ def _pure_build_judgment_prompt(case_id: str, evidence_root: str, evidence: list
         "CRITERIA:\n" + JUDGMENT_CRITERIA + "\n"
         "CASE_ID: " + case_id + "\nEVIDENCE_COMMITMENT: " + evidence_root + "\n"
         "EVIDENCE_JSON:\n" + json.dumps(evidence, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n"
-        "Return exactly these JSON fields: outcome_classification (MERITS_SUPPORTED, MERITS_NOT_SUPPORTED, "
-        "INSUFFICIENT_EVIDENCE, MATERIAL_CONFLICT), material_findings (array of at most 4 short strings), "
+        "Return exactly one valid JSON object, with no markdown fences, comments, trailing commas, or text before or after it. "
+        "Use exactly these 10 fields and no others: outcome_classification (one of MERITS_SUPPORTED, MERITS_NOT_SUPPORTED, "
+        "INSUFFICIENT_EVIDENCE, MATERIAL_CONFLICT), material_findings (array of 0 to 4 objects: "
+        "{code: FACT|RULE|PROCEDURE|OUTCOME|REMEDY|CONFLICT, sources: [{scope: CASE, source_id: exact evidence_id, "
+        "quote: exact contiguous quote from that evidence item}]}; every quote must directly support the finding and "
+        "must appear byte-for-byte in the specified item; never paraphrase or add facts; sort by code and source), "
         "evidence_sufficient (boolean), material_issue_determined (boolean), decision_eligible (boolean), "
         "relevant_rule_application (SATISFIED, NOT_SATISFIED, CONFLICTING, UNDETERMINED), "
-        "applicable_criteria (array of unique codes NOTICE, TIMELINESS, DOCUMENTED_CONDUCT, CAUSATION, REMEDY), "
-        "recommended_outcome (GRANT, DENY, REMAND, NO_RECOMMENDATION), reasoning_summary (short string), "
-        "uncertainty_flags (array of unique codes MISSING_EVIDENCE, CONFLICTING_EVIDENCE, AMBIGUOUS_RULE, LIMITED_RECORD)."
+        "applicable_criteria (array of unique codes drawn from NOTICE, TIMELINESS, DOCUMENTED_CONDUCT, CAUSATION, REMEDY), "
+        "recommended_outcome (GRANT, DENY, REMAND, NO_RECOMMENDATION), reasoning_summary (nonempty string, at most "
+        "500 characters and non-authoritative), uncertainty_flags (array of unique codes drawn from "
+        "MISSING_EVIDENCE, CONFLICTING_EVIDENCE, AMBIGUOUS_RULE, LIMITED_RECORD). Ensure all fields and values are valid JSON."
     )
 
 
-def _pure_validate_judgment_result(value) -> dict[str, object]:
+def _pure_validate_judgment_result(value, sources=None) -> dict[str, object]:
     required = (
         "outcome_classification", "material_findings", "evidence_sufficient", "material_issue_determined",
         "decision_eligible", "relevant_rule_application", "applicable_criteria", "recommended_outcome",
@@ -442,7 +462,10 @@ def _pure_validate_judgment_result(value) -> dict[str, object]:
     for field in ("evidence_sufficient", "material_issue_determined", "decision_eligible"):
         if type(value[field]) is not bool:
             raise gl.vm.UserError("judgment decision fields must be booleans")
-    findings = _pure_validate_judgment_string_list(value["material_findings"], MAX_JUDGMENT_FINDINGS, MAX_JUDGMENT_FINDING_LENGTH, "material findings", allow_empty=True)
+    findings = _pure_validate_material_findings(
+        value["material_findings"], sources, MAX_JUDGMENT_FINDINGS, MAX_JUDGMENT_FINDING_LENGTH,
+        "material findings", allow_empty=True,
+    )
     criteria = _pure_validate_judgment_enum_list(value["applicable_criteria"], JUDGMENT_CRITERIA_CODES, "applicable criteria")
     uncertainty = _pure_validate_judgment_enum_list(value["uncertainty_flags"], JUDGMENT_UNCERTAINTY_FLAGS, "uncertainty flags")
     if len(uncertainty) > int(MAX_JUDGMENT_UNCERTAINTY_FLAGS):
@@ -482,9 +505,57 @@ def _pure_validate_judgment_result(value) -> dict[str, object]:
         "relevant_rule_application": rule,
         "applicable_criteria": criteria,
         "recommended_outcome": outcome,
-        "reasoning_summary": reasoning,
+        "reasoning_summary": NON_AUTHORITATIVE_EXPLANATION,
         "uncertainty_flags": uncertainty,
     }
+
+
+def _pure_validate_material_findings(value, sources, maximum_count: int, maximum_quote_length: int,
+                                     label: str, allow_empty: bool = False) -> list[dict[str, object]]:
+    """Accept only canonical, exact-source quotations as material findings.
+
+    `sources` maps (scope, identifier) to the exact committed text. `None` is
+    used only by isolated shape checks; live adjudication always supplies it.
+    The independent validator still assesses whether each quoted source is
+    material to the criterion. Quotes themselves cannot introduce new facts.
+    """
+    if not isinstance(value, list) or len(value) > maximum_count or (not allow_empty and not value):
+        raise gl.vm.UserError("invalid " + label)
+    normalized = []
+    seen = set()
+    for finding in value:
+        if not isinstance(finding, dict) or set(finding) != {"code", "sources"}:
+            raise gl.vm.UserError("invalid " + label)
+        code = finding["code"]
+        refs = finding["sources"]
+        if not isinstance(code, str) or code not in MATERIAL_FINDING_CODES:
+            raise gl.vm.UserError("invalid " + label)
+        if not isinstance(refs, list) or not 1 <= len(refs) <= 2:
+            raise gl.vm.UserError("invalid " + label)
+        canonical_refs = []
+        ref_keys = set()
+        for ref in refs:
+            if not isinstance(ref, dict) or set(ref) != {"scope", "source_id", "quote"}:
+                raise gl.vm.UserError("invalid " + label)
+            scope, source_id, quote = ref["scope"], ref["source_id"], ref["quote"]
+            if (not isinstance(scope, str) or not isinstance(source_id, str) or not source_id
+                    or not isinstance(quote, str) or not quote.strip() or len(quote) > maximum_quote_length):
+                raise gl.vm.UserError("invalid " + label)
+            key = (scope, source_id)
+            if key in ref_keys or (sources is not None and (key not in sources or quote not in sources[key])):
+                raise gl.vm.UserError("invalid " + label)
+            ref_keys.add(key)
+            canonical_refs.append({"scope": scope, "source_id": source_id, "quote": quote})
+        canonical_refs.sort(key=lambda item: (item["scope"], item["source_id"], item["quote"]))
+        canonical = {"code": code, "sources": canonical_refs}
+        marker = json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        if marker in seen:
+            raise gl.vm.UserError("invalid " + label)
+        seen.add(marker)
+        normalized.append(canonical)
+    normalized.sort(key=lambda item: (item["code"], json.dumps(item["sources"], sort_keys=True,
+                                                                  separators=(",", ":"), ensure_ascii=True)))
+    return normalized
 
 
 def _pure_validate_judgment_string_list(value, maximum_count: int, maximum_length: int, label: str, allow_empty: bool = False) -> list[str]:
@@ -782,7 +853,7 @@ class CaseCourt(gl.Contract):
             ]
         )
         self.records[evidence_key] = self._encode(reference)
-        snapshot["evidence_count"] += 1
+        snapshot["evidence_count"] = int(snapshot["evidence_count"]) + 1
         snapshot["version"] = int(next_version)
         snapshot = self._append_action(
             snapshot, action_id, "EVIDENCE_APPENDED", sender, expected_version, payload_digest, evidence_id
@@ -849,6 +920,8 @@ class CaseCourt(gl.Contract):
             if self._evidence_key(case_id, evidence_id) in self.records:
                 raise gl.vm.UserError("evidence identifier already used")
         else:
+            if appeal is None:
+                raise gl.vm.UserError("appeal source binding is missing its appeal record")
             if int(appeal["appeal_evidence_count"]) >= int(MAX_APPEAL_EVIDENCE):
                 raise gl.vm.UserError("appeal evidence capacity reached")
             if self._appeal_evidence_key(appeal_id, evidence_id) in self.records:
@@ -870,8 +943,8 @@ class CaseCourt(gl.Contract):
             "register_web_source", case_id, str(expected_version), source_id, str(version), source_hash,
             evidence_id, binding_kind, appeal_id,
         ])
-        snapshot["web_source_count"] += 1
-        snapshot["version"] += 1
+        snapshot["web_source_count"] = int(snapshot["web_source_count"]) + 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "WEB_SOURCE_REGISTERED", gl.message.sender_address,
             expected_version, payload_digest, source_id,
@@ -908,7 +981,7 @@ class CaseCourt(gl.Contract):
         self._ensure_action_available(action_id, snapshot)
         self._ensure_capacity(snapshot)
         state["status"] = "APPROVED"
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         digest = self._payload_digest([
             "approve_web_source", case_id, source_id, str(source_version), registration["url_digest"],
         ])
@@ -949,7 +1022,7 @@ class CaseCourt(gl.Contract):
         state["attempt_count"] = int(request["attempt"])
         state["request_id"] = action_id
         state["status"] = "REQUESTED"
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         digest = self._payload_digest([
             "request_web_source_capture", case_id, source_id, str(source_version), action_id,
             registration["url_digest"], str(request["attempt"]),
@@ -1011,7 +1084,7 @@ class CaseCourt(gl.Contract):
         state["status"] = "CALLER_REPORTED_UNAVAILABLE"
         state["request_id"] = ""
         state["latest_verification_id"] = action_id
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         digest = self._payload_digest([
             "report_web_source_unavailable", case_id, source_id, str(source_version), request_id,
             reason_code, verification["verification_commitment"],
@@ -1058,7 +1131,7 @@ class CaseCourt(gl.Contract):
             registration, request_id, int(expected_version), str(request["request_commitment"])
         )
 
-        def analyze():
+        def analyze() -> dict[str, object]:
             page_text = gl.nondet.web.render(url, mode="text")
             if not isinstance(page_text, str) or not page_text.strip():
                 raise gl.vm.UserError("rendered source is empty or not text")
@@ -1099,7 +1172,10 @@ class CaseCourt(gl.Contract):
             except Exception:
                 return False
 
-        accepted = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        accepted_result = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        if not isinstance(accepted_result, dict):
+            raise gl.vm.UserError("Equivalence Principle did not return an accepted Web Render object")
+        accepted: dict = accepted_result
         verification = {
             "verification_id": action_id, "case_id": case_id, "source_id": source_id,
             "source_version": int(source_version), "request_id": request_id,
@@ -1207,7 +1283,7 @@ class CaseCourt(gl.Contract):
         )
         prompt = self._build_source_comparison_prompt(left_data, right_data)
 
-        def analyze():
+        def analyze() -> dict[str, object]:
             return _pure_validate_source_comparison_output(
                 gl.nondet.exec_prompt(prompt, response_format="json"), left_data, right_data
             )
@@ -1222,7 +1298,10 @@ class CaseCourt(gl.Contract):
             except Exception:
                 return False
 
-        result = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        comparison_result = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        if not isinstance(comparison_result, dict):
+            raise gl.vm.UserError("Equivalence Principle did not return an accepted comparison object")
+        result: dict = comparison_result
         comparison = {
             "comparison_id": comparison_id, "case_id": case_id,
             "comparison_schema_version": int(WEB_COMPARISON_SCHEMA_VERSION),
@@ -1246,8 +1325,8 @@ class CaseCourt(gl.Contract):
             "compare_web_sources", case_id, left_verification_id, left["verification_commitment"],
             right_verification_id, right["verification_commitment"], comparison["comparison_commitment"],
         ])
-        snapshot["web_comparison_count"] += 1
-        snapshot["version"] += 1
+        snapshot["web_comparison_count"] = int(snapshot["web_comparison_count"]) + 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "WEB_SOURCES_COMPARED_BY_EQUIVALENCE", gl.message.sender_address,
             expected_version, payload_digest, comparison_id,
@@ -1272,7 +1351,7 @@ class CaseCourt(gl.Contract):
         evidence_root = self._case_evidence_commitment(case_id, references)
         payload_digest = self._payload_digest(["lock_evidence", case_id, str(expected_version), evidence_root])
         snapshot["phase"] = CASE_PHASE_EVIDENCE_LOCKED
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot["evidence_root"] = evidence_root
         snapshot["evidence_root_count"] = len(references)
         snapshot = self._append_action(
@@ -1328,9 +1407,10 @@ class CaseCourt(gl.Contract):
         )
         prompt = self._build_judgment_prompt(case_id, evidence_root, evidence)
 
-        def analyze():
+        def analyze() -> dict[str, object]:
             raw_result = gl.nondet.exec_prompt(prompt, response_format="json")
-            return _pure_validate_judgment_result(raw_result)
+            sources = {("CASE", item["evidence_id"]): item["text"] for item in evidence}
+            return _pure_validate_judgment_result(raw_result, sources)
 
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
@@ -1341,7 +1421,7 @@ class CaseCourt(gl.Contract):
                 for field in (
                     "outcome_classification", "evidence_sufficient", "material_issue_determined",
                     "decision_eligible", "relevant_rule_application", "recommended_outcome",
-                    "applicable_criteria", "uncertainty_flags", "material_findings", "reasoning_summary",
+                    "applicable_criteria", "uncertainty_flags", "material_findings",
                 ):
                     if leader[field] != validator[field]:
                         return False
@@ -1351,9 +1431,14 @@ class CaseCourt(gl.Contract):
 
         # Storage changes occur only after the nondeterministic API returns an
         # accepted result. Direct Mode does not prove consensus or rollback.
-        accepted = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        accepted_result = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        if not isinstance(accepted_result, dict):
+            raise gl.vm.UserError("Equivalence Principle did not return an accepted judgment object")
+        accepted: dict = _pure_validate_judgment_result(
+            accepted_result, {("CASE", item["evidence_id"]): item["text"] for item in evidence}
+        )
         result_json = json.dumps(accepted, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-        result_digest = self._judgment_result_commitment(input_commitment, accepted)
+        result_digest = self._judgment_result_commitment(input_commitment, json.loads(result_json))
         payload_digest = self._payload_digest(["adjudicate_case", case_id, str(case_version), judgment_id, input_commitment, result_digest])
         record = {
             "judgment_id": judgment_id,
@@ -1393,7 +1478,7 @@ class CaseCourt(gl.Contract):
         snapshot["decision_result_json"] = result_json
         snapshot["decision_recorded_at"] = record["recorded_at"]
         snapshot["phase"] = CASE_PHASE_DECISION_RECORDED
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "CASE_JUDGMENT_RECORDED", gl.message.sender_address,
             u32(case_version), payload_digest, judgment_id,
@@ -1436,7 +1521,7 @@ class CaseCourt(gl.Contract):
         # Registry/Evaluator identity and case evidence, this remains an assertion.
         snapshot["decision_authority"] = DECISION_AUTHORITY_UNVERIFIED
         snapshot["phase"] = CASE_PHASE_DECISION_RECORDED
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "DECISION_REFERENCE_ATTACHED", gl.message.sender_address,
             expected_version, payload_digest, decision_ref_id
@@ -1484,7 +1569,7 @@ class CaseCourt(gl.Contract):
         )
         snapshot["challenge_id"] = challenge_id
         snapshot["phase"] = CASE_PHASE_CHALLENGE_OPEN
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         appeal_record = {
             "appeal_id": challenge_id,
             "case_id": case_id,
@@ -1691,7 +1776,7 @@ class CaseCourt(gl.Contract):
                 raise gl.vm.UserError("cannot assess a contradiction while either case is frozen or appealed")
         prompt = self._build_contradiction_prompt(challenge)
 
-        def analyze():
+        def analyze() -> dict[str, object]:
             response = gl.nondet.exec_prompt(prompt, response_format="json")
             return _pure_validate_contradiction_result(response)
 
@@ -1712,7 +1797,10 @@ class CaseCourt(gl.Contract):
             except Exception:
                 return False
 
-        accepted = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        accepted_result = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        if not isinstance(accepted_result, dict):
+            raise gl.vm.UserError("Equivalence Principle did not return an accepted contradiction object")
+        accepted: dict = accepted_result
         result_json = json.dumps(accepted, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
         evaluation = {
             "challenge_id": challenge_id,
@@ -2039,19 +2127,26 @@ class CaseCourt(gl.Contract):
             raise gl.vm.UserError("case is closed")
         if snapshot["active_appeal_id"]:
             raise gl.vm.UserError("case already has an active appeal")
-        if int(snapshot["appeal_count"]) >= int(MAX_APPEALS_PER_CASE):
-            raise gl.vm.UserError("appeal depth limit reached")
+        if int(snapshot["appeal_count"]) >= int(MAX_APPEAL_ATTEMPTS_PER_CASE):
+            raise gl.vm.UserError("appeal attempt limit reached")
 
         sender = gl.message.sender_address.as_hex
-        for prior_appeal_id in snapshot.get("appeal_ids", []):
+        prior_appeal_ids = snapshot.get("appeal_ids", [])
+        if not isinstance(prior_appeal_ids, list):
+            raise gl.vm.UserError("case appeal history is invalid")
+        for prior_appeal_id in prior_appeal_ids:
             prior_key = self._appeal_key(str(prior_appeal_id))
             if prior_key not in self.records:
                 raise gl.vm.UserError("case appeal history is incomplete")
             prior_appeal = self._decode(self.records[prior_key])
             if (prior_appeal.get("target_kind") == target_kind and prior_appeal.get("target_id") == target_id
                     and prior_appeal.get("target_commitment") == target_commitment):
-                raise gl.vm.UserError("case target already has an appeal filing")
+                if prior_appeal.get("status") != "LAPSED_TIMEOUT":
+                    raise gl.vm.UserError("case target already has a non-lapsed appeal filing")
         parent = None
+        level = 1
+        original_judgment_version = 0
+        original_judgment_commitment = ""
         if target_kind == "JUDGMENT":
             if parent_appeal_id or snapshot["phase"] != CASE_PHASE_DECISION_RECORDED:
                 raise gl.vm.UserError("first appeal requires the operative CaseCourt judgment")
@@ -2076,6 +2171,8 @@ class CaseCourt(gl.Contract):
             if self._same_address(sender, str(target["submitter"])):
                 raise gl.vm.UserError("judgment submitter cannot appeal its own judgment")
             original_judgment_id = target_id
+            original_judgment_version = int(target["case_version"])
+            original_judgment_commitment = str(target["judgment_commitment"])
         else:
             if not parent_appeal_id or snapshot["phase"] != CASE_PHASE_APPEAL_RESOLVED:
                 raise gl.vm.UserError("appellate appeal requires a resolved parent appeal")
@@ -2087,7 +2184,11 @@ class CaseCourt(gl.Contract):
                 raise gl.vm.UserError("parent appellate ruling not found")
             parent = self._decode(self.records[parent_key])
             ruling = self._decode(self.records[ruling_key])
-            if parent["status"] != "RESOLVED" or int(parent["level"]) != 1:
+            if parent["status"] != "RESOLVED":
+                raise gl.vm.UserError("parent appeal is not eligible for another level")
+            if int(parent["level"]) >= int(MAX_APPEAL_LEVEL):
+                raise gl.vm.UserError("appeal depth limit reached")
+            if int(parent["level"]) != 1:
                 raise gl.vm.UserError("parent appeal is not eligible for another level")
             if ruling["case_id"] != case_id or int(ruling["case_version"]) != int(target_version):
                 raise gl.vm.UserError("appellate target case or version mismatch")
@@ -2108,6 +2209,9 @@ class CaseCourt(gl.Contract):
             if self._same_address(sender, str(parent["appellant"])):
                 raise gl.vm.UserError("same appellant cannot file a consecutive appeal")
             original_judgment_id = str(parent["original_judgment_id"])
+            original_judgment_version = int(parent["original_judgment_version"])
+            original_judgment_commitment = str(parent["original_judgment_commitment"])
+            level = int(parent["level"]) + 1
         if parent_appeal_id == appeal_id:
             raise gl.vm.UserError("circular appeal reference")
         if self._appeal_key(appeal_id) in self.records:
@@ -2115,7 +2219,6 @@ class CaseCourt(gl.Contract):
         self._ensure_action_available(action_id, snapshot)
         self._ensure_capacity(snapshot)
 
-        level = 1 if target_kind == "JUDGMENT" else int(parent["level"]) + 1
         if level > int(MAX_APPEAL_LEVEL):
             raise gl.vm.UserError("appeal depth limit reached")
         filing_commitment = self._appeal_court_filing_commitment(
@@ -2136,8 +2239,8 @@ class CaseCourt(gl.Contract):
             "target_version": int(target_version),
             "target_commitment": target_commitment,
             "original_judgment_id": original_judgment_id,
-            "original_judgment_version": 0 if target_kind == "JUDGMENT" else int(parent["original_judgment_version"]),
-            "original_judgment_commitment": "" if target_kind == "JUDGMENT" else str(parent["original_judgment_commitment"]),
+            "original_judgment_version": original_judgment_version,
+            "original_judgment_commitment": original_judgment_commitment,
             "appellant": sender,
             "grounds_code": grounds_code,
             "grounds_digest": grounds_digest,
@@ -2160,14 +2263,11 @@ class CaseCourt(gl.Contract):
             "last_case_version": int(expected_version) + 1,
             "resolved_at": "",
         }
-        if target_kind == "JUDGMENT":
-            appeal["original_judgment_version"] = int(target["case_version"])
-            appeal["original_judgment_commitment"] = str(target["judgment_commitment"])
         payload_digest = self._payload_digest([
             "file_appeal", case_id, str(expected_version), appeal_id, target_kind, target_id,
             str(target_version), target_commitment, parent_appeal_id, grounds_code, grounds_digest, filing_commitment,
         ])
-        snapshot["appeal_count"] += 1
+        snapshot["appeal_count"] = int(snapshot["appeal_count"]) + 1
         snapshot["appeal_ids"].append(appeal_id)
         snapshot["active_appeal_id"] = appeal_id
         snapshot["appeal_freeze"] = True
@@ -2178,7 +2278,7 @@ class CaseCourt(gl.Contract):
         snapshot["frozen_by"] = sender
         snapshot["freeze_until"] = self._now_unix() + APPEAL_FREEZE_MAX_SECONDS
         snapshot["phase"] = CASE_PHASE_FROZEN
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "APPEAL_FILED_AND_CASE_FROZEN", gl.message.sender_address,
             expected_version, payload_digest, appeal_id,
@@ -2228,7 +2328,7 @@ class CaseCourt(gl.Contract):
             "append_appeal_evidence", case_id, appeal_id, str(expected_version), evidence_id,
             digest, str(evidence_schema_version), source_reference_digest,
         ])
-        appeal["appeal_evidence_count"] += 1
+        appeal["appeal_evidence_count"] = int(appeal["appeal_evidence_count"]) + 1
         appeal["appeal_evidence_ids"].append(evidence_id)
         snapshot["version"] = int(next_version)
         snapshot = self._append_action(
@@ -2261,7 +2361,7 @@ class CaseCourt(gl.Contract):
         appeal["appeal_evidence_root"] = evidence_root
         appeal["appeal_evidence_locked"] = True
         appeal["status"] = "REVIEW_READY"
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "APPEAL_EVIDENCE_LOCKED", gl.message.sender_address,
             expected_version, payload_digest, appeal_id,
@@ -2379,7 +2479,7 @@ class CaseCourt(gl.Contract):
         # Consume the proposal so this exact approval cannot be replayed once bound.
         appeal["reviewer_candidate"] = ""
         appeal["reviewer_proposal_commitment"] = ""
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "APPEAL_REVIEWER_APPROVED_AND_BOUND", gl.message.sender_address,
             expected_version, payload_digest, appeal_id,
@@ -2403,7 +2503,7 @@ class CaseCourt(gl.Contract):
         self._ensure_capacity(snapshot)
         payload_digest = self._payload_digest(["begin_appeal_review", case_id, appeal_id, str(expected_version)])
         appeal["status"] = "PENDING_ADJUDICATION"
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "APPEAL_REVIEW_STARTED", gl.message.sender_address,
             expected_version, payload_digest, appeal_id,
@@ -2461,9 +2561,14 @@ class CaseCourt(gl.Contract):
         )
         prompt = self._build_appeal_prompt(appeal, original, grounds_text, review_data, original_root, appeal_root)
 
-        def analyze():
+        def analyze() -> dict[str, object]:
             response = gl.nondet.exec_prompt(prompt, response_format="json")
-            return _pure_validate_appellate_result(response)
+            sources = {}
+            for scope in ("ORIGINAL", "APPEAL"):
+                group = "original_evidence" if scope == "ORIGINAL" else "appeal_evidence"
+                for item in review_data[group]:
+                    sources[(scope, item["evidence_id"])] = item["text"]
+            return _pure_validate_appellate_result(response, sources)
 
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
@@ -2474,7 +2579,7 @@ class CaseCourt(gl.Contract):
                 for field in (
                     "outcome", "original_judgment_valid", "material_error_found", "evidence_sufficient",
                     "reversal_justified", "remand_required", "case_state_change", "applicable_criteria",
-                    "material_findings", "reasoning_summary",
+                    "material_findings",
                 ):
                     if leader[field] != validator[field]:
                         return False
@@ -2482,7 +2587,17 @@ class CaseCourt(gl.Contract):
             except Exception:
                 return False
 
-        accepted = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        accepted_result = gl.vm.run_nondet_unsafe(analyze, validator_fn)
+        if not isinstance(accepted_result, dict):
+            raise gl.vm.UserError("Equivalence Principle did not return an accepted appellate object")
+        accepted_sources = {}
+        for scope in ("ORIGINAL", "APPEAL"):
+            group = "original_evidence" if scope == "ORIGINAL" else "appeal_evidence"
+            for item in review_data[group]:
+                accepted_sources[(scope, item["evidence_id"])] = item["text"]
+        accepted: dict = _pure_validate_appellate_result(accepted_result, accepted_sources)
+        accepted_json = json.dumps(accepted, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        accepted = json.loads(accepted_json)
         ruling_commitment = self._appellate_result_commitment(input_commitment, accepted)
         ruling = {
             "ruling_id": appeal_id,
@@ -2524,7 +2639,7 @@ class CaseCourt(gl.Contract):
         appeal["outcome"] = accepted["outcome"]
         appeal["ruling_commitment"] = ruling_commitment
         appeal["last_case_version"] = int(snapshot["version"]) + 1
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "APPELLATE_RULING_RECORDED_PENDING_RESOLUTION",
             gl.message.sender_address, expected_version, payload_digest, appeal_id,
@@ -2606,7 +2721,7 @@ class CaseCourt(gl.Contract):
         snapshot["last_resolved_appeal_id"] = appeal_id
         if outcome in ("REMANDED", "INSUFFICIENT_EVIDENCE"):
             action_kind = "APPEAL_RESOLVED_" + outcome + "_CASE_REOPENED"
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         appeal["status"] = "RESOLVED"
         appeal["resolved_at"] = self._now_iso()
         appeal["resolution_case_version"] = int(snapshot["version"])
@@ -2647,7 +2762,7 @@ class CaseCourt(gl.Contract):
         appeal["withdrawal_reason_code"] = reason_code
         appeal["withdrawal_requested_by"] = gl.message.sender_address.as_hex.lower()
         appeal["withdrawal_requested_at"] = self._now_iso()
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         digest = self._payload_digest([
             "request_appeal_withdrawal", case_id, appeal_id, str(expected_version), reason_code,
         ])
@@ -2694,7 +2809,7 @@ class CaseCourt(gl.Contract):
         snapshot["frozen_by"] = ZERO_ADDRESS.as_hex
         snapshot["freeze_until"] = 0
         snapshot["phase"] = CASE_PHASE_DECISION_RECORDED if str(appeal["target_kind"]) == "JUDGMENT" else CASE_PHASE_APPEAL_RESOLVED
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "APPEAL_WITHDRAWN_BY_BOTH_PARTIES", gl.message.sender_address,
             expected_version, digest, appeal_id,
@@ -2744,7 +2859,7 @@ class CaseCourt(gl.Contract):
         snapshot["frozen_by"] = ZERO_ADDRESS.as_hex
         snapshot["freeze_until"] = 0
         snapshot["phase"] = CASE_PHASE_DECISION_RECORDED if str(appeal["target_kind"]) == "JUDGMENT" else CASE_PHASE_APPEAL_RESOLVED
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "APPEAL_LAPSED_TIMEOUT", gl.message.sender_address,
             expected_version, digest, appeal_id,
@@ -2778,7 +2893,7 @@ class CaseCourt(gl.Contract):
         snapshot["closure_requested_by"] = sender
         snapshot["closure_requested_for_decision_id"] = str(snapshot["operative_decision_id"])
         snapshot["closure_requested_for_decision_digest"] = str(snapshot["operative_decision_digest"])
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "CASE_CLOSURE_REQUESTED", gl.message.sender_address,
             expected_version, digest, "",
@@ -2812,7 +2927,7 @@ class CaseCourt(gl.Contract):
         snapshot["case_closed"] = True
         snapshot["closure_approved_by"] = gl.message.sender_address.as_hex
         snapshot["phase"] = CASE_PHASE_CLOSED
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "CASE_CLOSED_BY_PARTIES", gl.message.sender_address,
             expected_version, digest, "",
@@ -2985,7 +3100,7 @@ class CaseCourt(gl.Contract):
         snapshot["freeze_until"] = int(until)
         snapshot["freeze_reason_digest"] = grounds_digest
         snapshot["phase"] = CASE_PHASE_FROZEN
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "CASE_FROZEN", gl.message.sender_address,
             expected_version, payload_digest, snapshot["challenge_id"]
@@ -3008,7 +3123,7 @@ class CaseCourt(gl.Contract):
         if snapshot.get("appeal_freeze") or snapshot.get("active_appeal_id"):
             raise gl.vm.UserError("appeal freeze can only be released by appellate resolution")
         sender = gl.message.sender_address
-        expired = self._now_unix() >= snapshot["freeze_until"]
+        expired = self._now_unix() >= int(snapshot["freeze_until"])
         if not expired:
             self._require_party(snapshot)
             if not self._same_address(sender.as_hex, snapshot["frozen_by"]):
@@ -3024,7 +3139,7 @@ class CaseCourt(gl.Contract):
         snapshot["freeze_until"] = 0
         snapshot["freeze_reason_digest"] = ""
         snapshot["phase"] = CASE_PHASE_CHALLENGE_OPEN
-        snapshot["version"] += 1
+        snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
             snapshot, action_id, "CASE_UNFROZEN", sender,
             expected_version, payload_digest, snapshot["challenge_id"]
@@ -3441,7 +3556,7 @@ class CaseCourt(gl.Contract):
                 "submitter": gl.message.sender_address.as_hex, "case_version": case_version,
                 "recorded_at": self._now_iso(),
             }
-            snapshot["evidence_count"] += 1
+            snapshot["evidence_count"] = int(snapshot["evidence_count"]) + 1
             self.records[key] = self._encode(reference)
             return
         appeal_id = str(registration["appeal_id"])
@@ -3459,7 +3574,7 @@ class CaseCourt(gl.Contract):
             "submitter": gl.message.sender_address.as_hex,
             "sequence": int(appeal["appeal_evidence_count"]) + 1, "recorded_at": self._now_iso(),
         }
-        appeal["appeal_evidence_count"] += 1
+        appeal["appeal_evidence_count"] = int(appeal["appeal_evidence_count"]) + 1
         appeal["appeal_evidence_ids"].append(evidence_id)
         appeal["last_case_version"] = case_version
         self.records[key] = self._encode(reference)
@@ -3479,17 +3594,6 @@ class CaseCourt(gl.Contract):
 
     def _web_verification_key(self, case_id: str, source_id: str, source_version: int, verification_id: str) -> str:
         return "WV:" + case_id + ":" + source_id + ":" + str(source_version) + ":" + verification_id
-
-    def _appeal_filing_commitment(
-        self, appeal_id: str, case_id: str, target_kind: str, target_id: str,
-        target_version: int, target_commitment: str, parent_appeal_id: str,
-        appellant: str, grounds_code: str, grounds_digest: str,
-    ) -> str:
-        return self._sha256_fields([
-            "PrecedentOS-APPEAL-COURT-FILING-v1", appeal_id, case_id, target_kind,
-            target_id, str(target_version), target_commitment, parent_appeal_id,
-            appellant.lower(), grounds_code, grounds_digest,
-        ])
 
     def _appeal_evidence_key(self, appeal_id: str, evidence_id: str) -> str:
         return "AE:" + appeal_id + ":" + evidence_id
@@ -3596,14 +3700,14 @@ class CaseCourt(gl.Contract):
     def _appellate_result_commitment(self, input_commitment: str, result: dict[str, object]) -> str:
         reasoning_digest = hashlib.sha256(str(result["reasoning_summary"]).encode("utf-8")).hexdigest()
         return self._sha256_fields([
-            "PrecedentOS-APPELLATE-RESULT-v1", input_commitment, str(APPELLATE_RULING_SCHEMA_VERSION),
+            "PrecedentOS-APPELLATE-RESULT-v2", input_commitment, str(APPELLATE_RULING_SCHEMA_VERSION),
             str(result["outcome"]), "true" if result["original_judgment_valid"] else "false",
             "true" if result["material_error_found"] else "false",
             "true" if result["evidence_sufficient"] else "false",
             "true" if result["reversal_justified"] else "false",
             "true" if result["remand_required"] else "false", str(result["case_state_change"]),
-            json.dumps(result["applicable_criteria"], separators=(",", ":")),
-            json.dumps(result["material_findings"], separators=(",", ":")), reasoning_digest,
+            json.dumps(result["applicable_criteria"], sort_keys=True, separators=(",", ":")),
+            json.dumps(result["material_findings"], sort_keys=True, separators=(",", ":")), reasoning_digest,
         ])
 
     def _require_version(self, snapshot: dict[str, object], expected_version: u32) -> None:
@@ -3780,15 +3884,15 @@ class CaseCourt(gl.Contract):
     def _judgment_result_commitment(self, input_commitment: str, result: dict[str, object]) -> str:
         reasons_digest = hashlib.sha256(str(result["reasoning_summary"]).encode("utf-8")).hexdigest()
         return self._sha256_fields([
-            "PrecedentOS-CASE-DECISION-RESULT-v1", input_commitment,
+            "PrecedentOS-CASE-DECISION-RESULT-v2", input_commitment,
             str(result["outcome_classification"]), str(result["recommended_outcome"]),
             "true" if result["evidence_sufficient"] else "false",
             "true" if result["material_issue_determined"] else "false",
             "true" if result["decision_eligible"] else "false",
             str(result["relevant_rule_application"]),
-            json.dumps(result["material_findings"], separators=(",", ":")),
-            json.dumps(result["applicable_criteria"], separators=(",", ":")),
-            json.dumps(result["uncertainty_flags"], separators=(",", ":")), reasons_digest,
+            json.dumps(result["material_findings"], sort_keys=True, separators=(",", ":")),
+            json.dumps(result["applicable_criteria"], sort_keys=True, separators=(",", ":")),
+            json.dumps(result["uncertainty_flags"], sort_keys=True, separators=(",", ":")), reasons_digest,
         ])
 
     def _get_authority_record(self, kind: str, record_id: str) -> dict[str, object]:

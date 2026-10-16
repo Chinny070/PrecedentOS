@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import vector from '../../../../tests/fixtures/appellate_commitment_vectors.json';
-import { computeAppealEvidenceCommitment, computeAppealFilingCommitment, computeAppellateInputCommitment, computeAppellateRulingCommitment, mayLabelAppellateRulingFinalized, prepareAppealJudgmentTarget, type AppellateDecisionFields } from './caseCourtAppeals';
+import { computeAppealEvidenceCommitment, computeAppealFilingCommitment, computeAppellateInputCommitment, computeAppellateRulingCommitment, decodeAppellateMaterialFindings, mayLabelAppellateRulingFinalized, prepareAppealJudgmentTarget, type AppellateDecisionFields } from './caseCourtAppeals';
 
 describe('CaseCourt appellate Python/TypeScript commitment vectors', () => {
+  it('decodes appellate findings only with bounded evidence references', () => {
+    const encoded = JSON.stringify([{ code: 'FACT', sources: [{ scope: 'ORIGINAL', source_id: 'FICT-EVIDENCE-1', quote: 'Exact original excerpt.' }] }]);
+    expect(decodeAppellateMaterialFindings(encoded)[0].sources[0].scope).toBe('ORIGINAL');
+    expect(() => decodeAppellateMaterialFindings(JSON.stringify([{ code: 'FACT', sources: [{
+      scope: 'APPEAL', source_id: 'FICT-EVIDENCE-1', quote: 'x'.repeat(181),
+    }] }]))).toThrow('invalid_material_finding_reference');
+  });
   it('uses the judgment readback original version and computes the filing commitment', async () => {
     const prepared = await prepareAppealJudgmentTarget({
       case_id: vector.case_id, case_version: String(vector.target_version), judgment_commitment: vector.target_commitment,
