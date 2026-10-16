@@ -316,4 +316,50 @@ describe('CaseCourt write argument validation and type preservation', () => {
   it('rejects an unsupported CaseCourt write method name', async () => {
     await expect(writeContractMethod(session(), caseCourtAddress, 'not_a_real_method', [])).rejects.toThrow('Unsupported PrecedentOS write method');
   });
+
+  // Regression: a live append_evidence submission from CaseCourtPage was
+  // silently rejected before ever reaching the wallet because this
+  // validator required 6 arguments instead of the contract's actual 7
+  // (case_id, expected_version, action_id, evidence_id, digest,
+  // evidence_schema_version, source_reference_digest). Assert against the
+  // exact call shape the page sends, not just a count.
+  it('accepts append_evidence with its real seven-argument shape', async () => {
+    const args = ['FICT-CASE-001', 1, 'ACT-EV1', 'EV-1', 'a'.repeat(64), 1, 'b'.repeat(64)];
+    const result = await writeContractMethod(session(), caseCourtAddress, 'append_evidence', args);
+    expect(result).toBe(hash);
+    expect(sdkClient.writeContract.mock.calls[0][0].args).toEqual(args);
+  });
+
+  it('rejects append_evidence missing an argument', async () => {
+    const args = ['FICT-CASE-001', 1, 'ACT-EV1', 'EV-1', 'a'.repeat(64), 1];
+    await expect(writeContractMethod(session(), caseCourtAddress, 'append_evidence', args)).rejects.toThrow('exactly 7 arguments');
+  });
+
+  it('accepts append_appeal_evidence with its real eight-argument shape', async () => {
+    const args = ['FICT-CASE-001', 'AP-1', 1, 'ACT-EV1', 'EV-1', 'a'.repeat(64), 1, 'b'.repeat(64)];
+    const result = await writeContractMethod(session(), caseCourtAddress, 'append_appeal_evidence', args);
+    expect(result).toBe(hash);
+    expect(sdkClient.writeContract.mock.calls[0][0].args).toEqual(args);
+  });
+
+  // Regression: file_appeal was silently rejected (count checked 12, one
+  // short of the contract's real 13th parameter, expected_filing_commitment)
+  // before ever reaching the wallet.
+  it('accepts file_appeal with its real thirteen-argument shape, filing commitment included', async () => {
+    const args = [
+      'FICT-CASE-001', 4, 'ACT-FILE', 'AP-1', 'JUDGMENT', 'JUDG-1', 4, 'a'.repeat(64), '',
+      'MATERIAL_ERROR', 'Fictional grounds text.', 'b'.repeat(64), 'c'.repeat(64),
+    ];
+    const result = await writeContractMethod(session(), caseCourtAddress, 'file_appeal', args);
+    expect(result).toBe(hash);
+    expect(sdkClient.writeContract.mock.calls[0][0].args).toEqual(args);
+  });
+
+  it('rejects file_appeal missing the filing commitment', async () => {
+    const args = [
+      'FICT-CASE-001', 4, 'ACT-FILE', 'AP-1', 'JUDGMENT', 'JUDG-1', 4, 'a'.repeat(64), '',
+      'MATERIAL_ERROR', 'Fictional grounds text.', 'b'.repeat(64),
+    ];
+    await expect(writeContractMethod(session(), caseCourtAddress, 'file_appeal', args)).rejects.toThrow('exactly 13 arguments');
+  });
 });

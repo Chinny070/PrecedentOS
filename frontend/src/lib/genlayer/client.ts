@@ -308,7 +308,7 @@ async function validateCaseCourtWrite(functionName: string, args: CalldataEncoda
     case 'append_evidence':
     case 'append_appeal_evidence': {
       const isAppeal = functionName === 'append_appeal_evidence';
-      if (args.length !== (isAppeal ? 7 : 6)) throw new Error(`${functionName} requires exactly ${isAppeal ? 7 : 6} arguments.`);
+      if (args.length !== (isAppeal ? 8 : 7)) throw new Error(`${functionName} requires exactly ${isAppeal ? 8 : 7} arguments.`);
       const [caseId, ...rest] = args;
       checkedId(caseId, 'case');
       const [appealOrVersion, ...rest2] = rest;
@@ -345,9 +345,9 @@ async function validateCaseCourtWrite(functionName: string, args: CalldataEncoda
       return;
     }
     case 'file_appeal': {
-      if (args.length !== 12) throw new Error('file_appeal requires exactly twelve arguments.');
+      if (args.length !== 13) throw new Error('file_appeal requires exactly 13 arguments.');
       const [caseId, expectedVersion, actionId, appealId, targetKind, targetId, targetVersion,
-        targetCommitment, parentAppealId, groundsCode, groundsText, groundsDigest] = args;
+        targetCommitment, parentAppealId, groundsCode, groundsText, groundsDigest, expectedFilingCommitment] = args;
       checkedId(caseId, 'case'); checkedVersion(expectedVersion, 'Expected version'); checkedId(actionId, 'action'); checkedId(appealId, 'appeal');
       if (targetKind !== 'JUDGMENT' && targetKind !== 'APPELLATE_RULING') throw new Error('Unsupported appeal target kind.');
       checkedId(targetId, 'appeal target');
@@ -357,6 +357,7 @@ async function validateCaseCourtWrite(functionName: string, args: CalldataEncoda
       if (!['NEW_EVIDENCE', 'MATERIAL_ERROR', 'PROCEDURAL_CONCERN', 'MISAPPLIED_CRITERIA'].includes(groundsCode as string)) throw new Error('Unsupported appeal grounds code.');
       if (typeof groundsText !== 'string' || !groundsText.trim() || groundsText.length > 600) throw new Error('Invalid appeal grounds text.');
       checkedCaseDigest(groundsDigest, 'Grounds commitment');
+      checkedCaseDigest(expectedFilingCommitment, 'Filing commitment');
       return;
     }
     case 'propose_appeal_reviewer': {
