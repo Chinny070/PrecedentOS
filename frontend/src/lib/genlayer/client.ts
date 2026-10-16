@@ -474,8 +474,14 @@ export async function trackTransactionLifecycle(
   onUpdate: (update: LifecycleUpdate) => void = () => undefined,
   options: LifecycleOptions = {},
 ): Promise<LifecycleUpdate> {
-  const intervalMs = options.intervalMs ?? 3000;
-  const attempts = options.attempts ?? 40;
+  // Studionet's ACCEPTED -> FINALIZED transition includes a protocol
+  // appeal/finalization window that can comfortably exceed two minutes even
+  // for a transaction with zero leader rotations (observed live: a
+  // zero-rotation evaluate_pair call outlived the previous 40x3s window).
+  // This default trades a longer wait for not falsely reporting "unknown"
+  // on a transaction that was, in fact, finalizing normally.
+  const intervalMs = options.intervalMs ?? 5000;
+  const attempts = options.attempts ?? 100;
   const sleep = options.sleep ?? defaultSleep;
   let lastStatus = '';
   try {

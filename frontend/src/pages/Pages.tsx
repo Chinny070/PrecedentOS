@@ -150,6 +150,8 @@ export function ComparePage() {
   const [commitment, setCommitment] = useState(''); const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(''); const [result, setResult] = useState<Record<string, string> | null>(null);
   const [evaluationId, setEvaluationId] = useState('');
+  const [pendingHash, setPendingHash] = useState<`0x${string}` | null>(null);
+  const [rechecking, setRechecking] = useState(false);
   const recordA = DEMO_PRECEDENTS.find((item) => item.id === idA)!;
   const recordB = DEMO_PRECEDENTS.find((item) => item.id === idB)!;
   useEffect(() => { void sha256Utf8(passageA).then(setDigestA); }, [passageA]);
@@ -161,8 +163,35 @@ export function ComparePage() {
   const errors = useMemo(() => [...validateEvidencePacket(passageA, passageB, criteria), idA === idB ? 'Choose two different record identifiers.' : ''], [passageA, passageB, criteria, idA, idB]).filter(Boolean);
   function changeA(value: string) { setIdA(value); const record = DEMO_PRECEDENTS.find((item) => item.id === value); if (record) setPassageA(record.passage); }
   function changeB(value: string) { setIdB(value); const record = DEMO_PRECEDENTS.find((item) => item.id === value); if (record) setPassageB(record.passage); }
+  function pollAndReadback(hash: `0x${string}`, nextId: string, expectedInputCommitment: string) {
+    if (!wallet) return;
+    setPendingHash(hash);
+    void trackTransactionLifecycle(wallet.client, hash, (update) => {
+      updateTransaction(hash, { ...update, storedLocally: false });
+      if (update.status === 'failed') setMessage(`The transaction did not complete successfully: ${update.detail}`);
+      if (update.status === 'unknown') setMessage(`Transaction status is unresolved: ${update.detail}`);
+      if (update.status === 'finalized') {
+        setPendingHash(null);
+        void readEvaluation(wallet.client, addresses.evaluator, nextId)
+          .then((value) => {
+            assertEvaluationReadbackBinding(value, {
+              evaluationId: nextId, recordAId: idA, recordADigest: digestA,
+              recordBId: idB, recordBDigest: digestB, inputCommitment: expectedInputCommitment,
+            });
+            setResult(value); setMessage('Majority-agreed execution finalized and its bound result read back from the configured Evaluator. This does not establish legal correctness.');
+          })
+          .catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Finalized evaluation readback failed.'));
+      }
+    });
+  }
+  async function recheckPending() {
+    if (!pendingHash || !evaluationId || !commitment) return;
+    setRechecking(true); setMessage('Re-checking transaction status…');
+    try { pollAndReadback(pendingHash, evaluationId, commitment); }
+    finally { setRechecking(false); }
+  }
   async function submit(event: FormEvent) {
-    event.preventDefault(); setMessage(''); setResult(null);
+    event.preventDefault(); setMessage(''); setResult(null); setPendingHash(null);
     if (errors.length) { setMessage('Resolve the evidence and criteria limits before submitting.'); return; }
     if (!wallet || !isAddress(addresses.evaluator)) { setMessage('A connected Studionet wallet and a configured Evaluator address are required.'); return; }
     const nextId = `EVAL-${crypto.randomUUID().toUpperCase()}`;
@@ -177,22 +206,7 @@ export function ComparePage() {
       const hash = await writeContractMethod(wallet, addresses.evaluator, 'evaluate_pair', [nextId, idA, digestA, idB, digestB, packet, 1, 1, criteria]);
       const tx: TransactionTrace = { hash, action: `Compare ${idA} × ${idB}`, status: 'submitted', submittedAtLocal: new Date().toISOString() };
       saveTransaction(tx); setMessage(`Submitted ${hash}. Waiting for the actual transaction lifecycle; no result is assumed from submission.`);
-      void trackTransactionLifecycle(wallet.client, hash, (update) => {
-        updateTransaction(hash, { ...update, storedLocally: false });
-        if (update.status === 'failed') setMessage(`The transaction did not complete successfully: ${update.detail}`);
-        if (update.status === 'unknown') setMessage(`Transaction status is unresolved: ${update.detail}`);
-        if (update.status === 'finalized') {
-          void readEvaluation(wallet.client, addresses.evaluator, nextId)
-            .then((value) => {
-              assertEvaluationReadbackBinding(value, {
-                evaluationId: nextId, recordAId: idA, recordADigest: digestA,
-                recordBId: idB, recordBDigest: digestB, inputCommitment: expectedInputCommitment,
-              });
-              setResult(value); setMessage('Majority-agreed execution finalized and its bound result read back from the configured Evaluator. This does not establish legal correctness.');
-            })
-            .catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Finalized evaluation readback failed.'));
-        }
-      });
+      pollAndReadback(hash, nextId, expectedInputCommitment);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The comparison was not submitted.'); }
     finally { setBusy(false); }
   }
@@ -208,7 +222,7 @@ export function ComparePage() {
       <section className="criteria-card"><div className="criteria-title"><SectionLabel index="C">EXPLICIT CRITERIA / VERSION 1</SectionLabel><span>{codePointLength(criteria)} / {MAX_CRITERIA_LENGTH}</span></div><label htmlFor="criteria-input" className="sr-only">Comparison criteria</label><textarea id="criteria-input" value={criteria} onChange={(e) => setCriteria(e.target.value)} maxLength={MAX_CRITERIA_LENGTH} rows={3}/><p>Criteria are part of the evaluation input commitment. Evidence is untrusted data, not instructions.</p></section>
       <div className="commitment-card"><div><span>INPUT COMMITMENT / PREVIEW</span><StatusTag tone="demo">BROWSER-COMPUTED</StatusTag></div><code>{commitment || 'Generated when evaluation ID is prepared'}</code><p>Length-framed SHA-256 matching the contract's v1 field order. The on-chain result must still be independently read back.</p></div>
       {errors.length > 0 && <ul className="form-errors">{errors.map((error) => <li key={error}>{error}</li>)}</ul>}
-      {message && <div role="status" className="inline-message">{message}</div>}
+      {message && <div role="status" className="inline-message">{message}{pendingHash && <button type="button" className="button button--dark button--small" disabled={rechecking} onClick={() => void recheckPending()} style={{ marginLeft: 12 }}>{rechecking ? 'Checking…' : 'Check again'}</button>}</div>}
       <div className="submit-strip"><div><b>NO PRIVATE DATA</b><span>Do not submit personal, confidential, or non-public passages.</span></div><button className="button button--dark" disabled={!canSubmit}>{busy ? 'Awaiting wallet…' : 'Submit to PrecedentEvaluator'} <Icon name="arrow" size={16}/></button></div>
       {!isAddress(addresses.evaluator) && <div className="form-blocker">The Evaluator address is not configured. Demo navigation stays available; no fallback or mock write will occur.</div>}
     </form>

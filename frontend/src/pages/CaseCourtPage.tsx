@@ -46,6 +46,30 @@ export function CaseCourtPage() {
   const [evidenceTexts, setEvidenceTexts] = useState<Record<string, string>>({});
 
   const configured = isAddress(addresses.caseCourt);
+  const [pending, setPending] = useState<{ hash: `0x${string}`; label: string; onFinalized?: () => void } | null>(null);
+  const [rechecking, setRechecking] = useState(false);
+
+  function poll(hash: `0x${string}`, label: string, onFinalized?: () => void) {
+    if (!wallet) return;
+    setPending({ hash, label, onFinalized });
+    void trackTransactionLifecycle(wallet.client, hash, (update) => {
+      updateTransaction(hash, { ...update, storedLocally: false });
+      if (update.status === 'failed') setMessage(`${label} did not complete: ${update.detail}`);
+      if (update.status === 'unknown') setMessage(`${label} status is unresolved: ${update.detail}`);
+      if (update.status === 'finalized') {
+        setPending(null);
+        setMessage(`${label} finalized with majority agreement and a successful return.`);
+        onFinalized?.();
+      }
+    });
+  }
+
+  async function recheckPending() {
+    if (!pending) return;
+    setRechecking(true); setMessage(`Re-checking ${pending.label}…`);
+    try { poll(pending.hash, pending.label, pending.onFinalized); }
+    finally { setRechecking(false); }
+  }
 
   const run: Runner = async (label, action, onFinalized) => {
     if (!wallet) { setMessage('Connect a Studionet wallet in Settings before submitting a transaction.'); return; }
@@ -55,15 +79,7 @@ export function CaseCourtPage() {
       const tx: TransactionTrace = { hash, action: label, status: 'submitted', submittedAtLocal: new Date().toISOString() };
       saveTransaction(tx);
       setMessage(`Submitted ${hash}.`);
-      void trackTransactionLifecycle(wallet.client, hash, (update) => {
-        updateTransaction(hash, { ...update, storedLocally: false });
-        if (update.status === 'failed') setMessage(`${label} did not complete: ${update.detail}`);
-        if (update.status === 'unknown') setMessage(`${label} status is unresolved: ${update.detail}`);
-        if (update.status === 'finalized') {
-          setMessage(`${label} finalized with majority agreement and a successful return.`);
-          onFinalized?.();
-        }
-      });
+      poll(hash, label, onFinalized);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `${label} was not submitted.`);
     } finally {
@@ -117,7 +133,7 @@ export function CaseCourtPage() {
     <AppealSection wallet={wallet} address={addresses.caseCourt} run={run} reload={loadCase} caseId={caseId} version={version} />
     <WebRenderSection wallet={wallet} address={addresses.caseCourt} run={run} caseId={caseId} />
 
-    {message && <div role="status" className="inline-message">{message}</div>}
+    {message && <div role="status" className="inline-message">{message}{pending && <button type="button" className="button button--dark button--small" disabled={rechecking} onClick={() => void recheckPending()} style={{ marginLeft: 12 }}>{rechecking ? 'Checking…' : 'Check again'}</button>}</div>}
   </div>;
 }
 
