@@ -27,7 +27,6 @@ import shutil
 import subprocess
 import sys
 import time
-import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -110,6 +109,7 @@ def save_manifest(manifest: dict) -> None:
 class Plan:
     network_name: str = ""
     chain_id: int = 0
+    account_network: str = ""
     wallet_name: str = ""
     wallet_address: str = ""
     wallet_balance: str = ""
@@ -135,28 +135,16 @@ def gather_plan() -> Plan:
             "this script refuses to switch networks."
         )
 
-    rpc_request = urllib.request.Request(
-        TARGET_RPC_URL,
-        data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(rpc_request, timeout=8) as response:
-            rpc_payload = json.loads(response.read().decode("utf-8"))
-    except Exception as error:
-        raise RuntimeError(f"Independent stable Studionet eth_chainId check failed: {error}") from error
-    if str(rpc_payload.get("result", "")).lower() != "0xf22f":
-        raise RuntimeError(f"Stable Studionet eth_chainId returned {rpc_payload.get('result')!r}; expected 0xf22f.")
-
     account_info = run_cli(["account"]).stdout
     match_name = re.search(r"name:\s*'([^']+)'", account_info)
     match_address = re.search(r"address:\s*'(0x[0-9a-fA-F]{40})'", account_info)
     match_balance = re.search(r"balance:\s*'([^']+)'", account_info)
+    match_account_network = re.search(r"network:\s*'([^']+)'", account_info)
     match_active = "active: true" in account_info
     plan.wallet_name = match_name.group(1) if match_name else "unknown"
     plan.wallet_address = match_address.group(1) if match_address else ""
     plan.wallet_balance = match_balance.group(1) if match_balance else "unknown"
+    plan.account_network = match_account_network.group(1) if match_account_network else "unknown"
     if not match_active:
         raise RuntimeError(
             f"Active CLI account is '{plan.wallet_name}', not confirmed active. "
@@ -164,6 +152,10 @@ def gather_plan() -> Plan:
         )
     if not plan.wallet_address:
         raise RuntimeError("Could not parse the active wallet address from 'genlayer account' output.")
+    if plan.account_network != "Genlayer Studio Network":
+        raise RuntimeError(
+            f"CLI account endpoint reports network {plan.account_network!r}; expected 'Genlayer Studio Network'."
+        )
 
     for entry in CONTRACTS:
         plan.source_hashes[entry["key"]] = sha256_file(entry["path"])
@@ -174,13 +166,18 @@ def gather_plan() -> Plan:
 def print_plan(plan: Plan) -> None:
     print("\n=== PrecedentOS Studionet deployment plan ===")
     print(f"Network:        {plan.network_name} (chain {plan.chain_id})")
+    print(f"Account RPC:    {plan.account_network} (CLI account query succeeded)")
     print(f"Wallet:         {plan.wallet_name} ({plan.wallet_address})")
     print(f"Wallet balance: {plan.wallet_balance}")
     print("Source SHA-256:")
     for entry in CONTRACTS:
         print(f"  {entry['name']:<20} {plan.source_hashes[entry['key']]}  ({entry['path'].relative_to(REPO_ROOT)})")
     print(
-        "\nFee estimate: the installed CLI's 'genlayer estimate-fees' is broken against this "
+        "\nRPC note: the endpoint's direct eth_chainId request returns HTTP 403 in this environment. "
+        "The preflight therefore verifies the CLI's configured Studionet alias, chain ID and RPC URL, "
+        "then requires a successful active-account query reporting Genlayer Studio Network. "
+        "This confirms CLI endpoint reachability, but is not an independent eth_chainId response.\n\n"
+        "Fee estimate: the installed CLI's 'genlayer estimate-fees' is broken against this "
         "network (it throws 'client.estimateTransactionFees is not a function' in the pinned "
         "genlayer-js build) and cannot produce a number before deployment. This is a concrete "
         "tooling limitation, not a number being withheld. Treat the wallet balance above "
@@ -202,6 +199,33 @@ def extract_address_and_hash(stdout: str) -> tuple[str | None, str | None]:
     return address, tx_hash
 
 
+def extract_cli_code(stdout: str) -> str:
+    """Remove the pinned CLI's ``Result:`` wrapper without changing source bytes."""
+    marker = "Result:\n"
+    _, found, rendered = stdout.partition(marker)
+    if not found or not rendered.endswith("\n\n"):
+        raise RuntimeError("Could not isolate the deployed contract source from 'genlayer code' output.")
+    return rendered[:-2]
+
+
+def comparable_source_bytes(source: bytes) -> bytes:
+    """Match CLI-returned LF text while preserving every non-newline source byte."""
+    return source.replace(b"\r\n", b"\n")
+
+
+def preserve_deployment_history(manifest: dict, key: str, previous: dict | None, replacement_address: str | None) -> None:
+    if not previous or previous.get("status") != "finalized":
+        return
+    history_key = f"{key}_history"
+    history = manifest.setdefault(history_key, [])
+    if any(item.get("tx_hash") == previous.get("tx_hash") for item in history):
+        return
+    archived = dict(previous)
+    if replacement_address:
+        archived["superseded_by"] = replacement_address
+    history.append(archived)
+
+
 def deploy_one(entry: dict, manifest: dict) -> None:
     key = entry["key"]
     existing = manifest["contracts"].get(key)
@@ -214,10 +238,11 @@ def deploy_one(entry: dict, manifest: dict) -> None:
             )
         if status == "finalized" and existing.get("source_sha256") == sha256_file(entry["path"]):
             deployed_code = run_cli(["code", str(existing.get("address", ""))])
-            if hashlib.sha256(deployed_code.stdout.encode("utf-8")).hexdigest() != existing["source_sha256"]:
+            deployed_source = extract_cli_code(deployed_code.stdout).encode("utf-8")
+            if comparable_source_bytes(deployed_source) != comparable_source_bytes(entry["path"].read_bytes()):
                 raise RuntimeError(
                     f"Recorded {entry['name']} source hash matches local source, but deployed code could not be "
-                    "proven byte-identical; refusing to report it as reusable."
+                    "proven identical after CRLF-to-LF normalization; refusing to report it as reusable."
                 )
             print(f"[skip] {entry['name']} source matches deployment at {existing['address']} (tx {existing['tx_hash']})")
             return
@@ -225,6 +250,7 @@ def deploy_one(entry: dict, manifest: dict) -> None:
     print(f"\n--- Deploying {entry['name']} ({entry['path'].relative_to(REPO_ROOT)}) ---")
     result = run_cli(["deploy", "--contract", str(entry["path"])])
     address, tx_hash = extract_address_and_hash(result.stdout + result.stderr)
+    preserve_deployment_history(manifest, key, existing, address)
     manifest["contracts"][key] = {
         "name": entry["name"],
         "source_path": str(entry["path"].relative_to(REPO_ROOT)),
@@ -289,6 +315,18 @@ def deploy_one(entry: dict, manifest: dict) -> None:
             f"{entry['name']} transaction {tx_hash} finalized, but no contract address could be parsed. "
             "Read it from Explorer and record it manually in the manifest before continuing."
         )
+
+    deployed_code = run_cli(["code", address])
+    deployed_source = extract_cli_code(deployed_code.stdout).encode("utf-8")
+    if comparable_source_bytes(deployed_source) != comparable_source_bytes(entry["path"].read_bytes()):
+        manifest["contracts"][key]["status"] = "finalized_source_mismatch"
+        save_manifest(manifest)
+        raise RuntimeError(
+            f"{entry['name']} finalized at {address}, but retrieved source differs from the local file "
+            "after CRLF-to-LF normalization. Do not publish this deployment as source-verified."
+        )
+    manifest["contracts"][key]["source_identity_verified"] = True
+    save_manifest(manifest)
 
     print(f"Running a read-only schema/constructor smoke check against {address} ...")
     schema = run_cli(["schema", address], check=False)
