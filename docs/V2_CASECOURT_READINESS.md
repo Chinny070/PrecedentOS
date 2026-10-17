@@ -6,14 +6,20 @@
 **Contract source:** [`contracts/case_court.py`](../contracts/case_court.py)
 **Source SHA-256 at initial review:** `e9f4d73fe243eabd1e18decf2c16abbfa742ee692f04933ca578bf28d4f395de`
 
-## Decision
+## Release deployment update — 2026-10-17
+
+The latest source described in this review has since been deployed at `0x43A473Fe177C3294F86F397AEE2dF266EC2dd1eF` (transaction `0xae50ed3800b92d85488e00499354ef451ca9c01b7c2d634cbd8a9fa7f8db5c47`). The user supplied the Explorer receipt screenshot; an independent read-only Explorer check confirmed FINALIZED, Accepted, and GenVM SUCCESS. The public Explorer Contract tab source was fetched and its raw SHA-256 (`4f83173436b60086c0539654502dd887180c2689c0cb9088f61498e0fd244f84`) matched the local `contracts/case_court.py` exactly.
+
+The Vercel production app now uses that address. Its production deployment is READY, and all five primary routes loaded at 390px viewport width without browser errors or horizontal overflow. This verifies deployment wiring only: no case lifecycle, AI judgment, appeal, recovery, contradiction, or Web Render transaction has been run on the new instance. The old `FICT-CASE-STUDIO-006` readback belongs to the historical `0xC4d6530213c2b8929dc66064e67082aB01bC7c4c` deployment.
+
+## Historical decision at the 2026-10-14 review point
 
 - **Phase A is reported complete** on earlier deployments by the user: case creation, evidence append/readback, evidence lock/root readback, and stale-version rejection. This host also independently read current deployed case FICT-CASE-STUDIO-006 at 0xC4d6530213c2b8929dc66064e67082aB01bC7c4c; it remains EVIDENCE_LOCKED, version 4, with no persisted decision after the user's Undetermined adjudication report.
-- **Fictional prototype lifecycle testing is permitted after the updated source is deployed and the user reviews the fee.** An AI result is a protocol assessment, not legal advice or legally authoritative.
-- **Production governance remains NO-GO.** The current repository source requires a mutually proposed and approved non-party reviewer, but this is still not a vetted neutral panel. Earlier deployed versions used the opposing case party as reviewer. New source recovery transitions also require a fresh deployment before they exist on-chain.
-- **Codex did not deploy, request signatures, submit transactions, or invoke Web Render.** The user performed the Studio deployment and Phase A calls described below.
+- **At that review point, fictional prototype lifecycle testing was conditional on a fresh deployment and fee review.** The source has since been deployed as recorded above. An AI result is a protocol assessment, not legal advice or legally authoritative.
+- **Production governance remains NO-GO.** The current repository source requires a mutually proposed and approved non-party reviewer, but this is still not a vetted neutral panel. Earlier deployed versions used the opposing case party as reviewer.
+- **At that review point, Codex had not deployed, requested signatures, submitted transactions, or invoked Web Render.** The later user-run contract deployment and Codex-published Vercel frontend are recorded in the release update above.
 
-This remains a source/local-test review plus user-reported Studio evidence. The current CaseCourt address is recorded in the deployment manifest; transaction retrieval and exact deployed source identity are not independently verified.
+The sections below preserve the evidence and conclusions available at their stated historical review dates. The release deployment update above records later receipt, source-identity, and frontend verification.
 
 ## Contract inventory
 

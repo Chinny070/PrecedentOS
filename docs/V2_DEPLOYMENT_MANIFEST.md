@@ -209,3 +209,13 @@ The working-tree CaseCourt source has since changed to add bounded legacy-challe
 - The source hash for a future deployment must be recomputed from exact `contracts/case_court.py` bytes and recorded with the new address and full deployment transaction hash. Keep every prior address as history.
 - The all-contract `scripts/deploy_studionet.py` workflow would redeploy Registry and Evaluator too; do not use it for this CaseCourt-only source update. Deploy only CaseCourt through the supported single-contract flow after confirming the CLI command, chain `61999`, signer and fee. This manifest will retain all earlier addresses.
 - Independent live transaction retrieval and source-byte verification are not available in this environment. User-supplied Explorer details remain attributed as such.
+
+## CaseCourt release deployment and Vercel update — 2026-10-17
+
+- CaseCourt address: `0x43A473Fe177C3294F86F397AEE2dF266EC2dd1eF`.
+- Deployment transaction: `0xae50ed3800b92d85488e00499354ef451ca9c01b7c2d634cbd8a9fa7f8db5c47`.
+- Receipt evidence: user-supplied Explorer screenshot reports `FINALIZED`, `Accepted`, and GenVM `SUCCESS`. A read-only Explorer page visit independently confirmed the address, creator, transaction hash, and those three status fields.
+- Source identity: fetched the public Explorer Contract tab source (249,931 characters). Its raw UTF-8 SHA-256 is `4f83173436b60086c0539654502dd887180c2689c0cb9088f61498e0fd244f84`, exactly matching the local `contracts/case_court.py` bytes. The previously documented CLI `genlayer code` endpoint continued to return “Contract not found” for this new address; the Explorer source view supplied the source comparison instead.
+- This is a fresh deployment. The prior `0xC4d6530213c2b8929dc66064e67082aB01bC7c4c` and its `FICT-CASE-STUDIO-006` remain historical and unchanged. No case, judgment, appeal, withdrawal, challenge, or Web Render transaction has been performed on the new address.
+- Vercel production environment variable `VITE_GENLAYER_CASECOURT_ADDRESS` was updated to the new address. Registry and Evaluator production variables were left unchanged.
+- Vercel project `chinny070s-projects/precedentos` deployment `dpl_7ynYRadKUtJAUwWctMEv677o5oJC` completed with `readyState=READY`, target `production`, and alias `https://precedentos.vercel.app/`. The production frontend build succeeded. Public routes `/`, `/case-court`, `/precedents`, `/compare`, `/web-evidence` each returned HTTP 200 at 390px viewport width; no browser page, console, request, or horizontal-overflow errors were observed. The served JavaScript contains the new CaseCourt address.
