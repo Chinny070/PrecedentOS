@@ -6,7 +6,7 @@ import { useApp } from '../state/AppContext';
 import { sha256Utf8, validRecordId } from '../lib/commitments';
 import { prepareAppealJudgmentTarget } from '../lib/genlayer/caseCourtAppeals';
 import {
-  createReadClient, readAppeal, readAppealRecoveryStatus, readAppellateRuling, readCaseJudgment, readCase as readCaseSnapshot,
+  createReadClient, readAppeal, readAppealRecoveryStatus, readAppellateRuling, readCaseJudgment, readCase as readCaseSnapshot, readCaseEvidence,
   readWebSource, trackTransactionLifecycle, writeContractMethod, type WalletSession,
 } from '../lib/genlayer/client';
 import type { TransactionTrace } from '../types/domain';
@@ -30,7 +30,7 @@ function ReadbackCard({ title, value, empty }: { title: string; value: Record<st
   </div></div>;
 }
 
-type Runner = (label: string, action: () => Promise<`0x${string}`>, onFinalized?: () => void) => Promise<void>;
+type Runner = (label: string, action: () => Promise<`0x${string}`>, onFinalized?: () => void, recoverFromReadback?: () => Promise<boolean>) => Promise<void>;
 
 export function CaseCourtPage() {
   const { wallet, addresses, saveTransaction, updateTransaction } = useApp();
@@ -47,19 +47,19 @@ export function CaseCourtPage() {
   const [evidenceTexts, setEvidenceTexts] = useState<Record<string, string>>({});
 
   const configured = isAddress(addresses.caseCourt);
-  const [pending, setPending] = useState<{ hash: `0x${string}`; label: string; onFinalized?: () => void } | null>(null);
+  const [pending, setPending] = useState<{ hash: `0x${string}`; label: string; onFinalized?: () => void; recoverFromReadback?: () => Promise<boolean> } | null>(null);
   const [rechecking, setRechecking] = useState(false);
 
-  function poll(hash: `0x${string}`, label: string, onFinalized?: () => void) {
+  function poll(hash: `0x${string}`, label: string, onFinalized?: () => void, recoverFromReadback?: () => Promise<boolean>) {
     if (!wallet) return;
-    setPending({ hash, label, onFinalized });
+    setPending({ hash, label, onFinalized, recoverFromReadback });
     void trackTransactionLifecycle(wallet.client, hash, (update) => {
       updateTransaction(hash, { ...update, storedLocally: false });
       if (update.status === 'failed') {
         setPending(null);
         setMessage(`${label} did not complete: ${update.detail}`);
       }
-      if (update.status === 'unknown') setMessage(`${label} status is unresolved: ${update.detail}`);
+      if (update.status === 'unknown') setMessage(`${label} status is unresolved: ${update.detail} Load the case readback to reconcile a confirmed state change.`);
       if (update.status === 'finalized') {
         setPending(null);
         setMessage(`${label} finalized with majority agreement and a successful return.`);
@@ -71,11 +71,11 @@ export function CaseCourtPage() {
   async function recheckPending() {
     if (!pending) return;
     setRechecking(true); setMessage(`Re-checking ${pending.label}…`);
-    try { poll(pending.hash, pending.label, pending.onFinalized); }
+    try { poll(pending.hash, pending.label, pending.onFinalized, pending.recoverFromReadback); }
     finally { setRechecking(false); }
   }
 
-  const run: Runner = async (label, action, onFinalized) => {
+  const run: Runner = async (label, action, onFinalized, recoverFromReadback) => {
     if (!wallet) { setMessage('Connect a Studionet wallet in Settings before submitting a transaction.'); return; }
     if (pending) { setMessage(`Wait for ${pending.label} to reach a known terminal status before submitting a dependent write.`); return; }
     if (busy) { setMessage('A transaction submission is already being prepared.'); return; }
@@ -85,7 +85,7 @@ export function CaseCourtPage() {
       const tx: TransactionTrace = { hash, action: label, status: 'submitted', submittedAtLocal: new Date().toISOString() };
       saveTransaction(tx);
       setMessage(`Submitted ${hash}.`);
-      poll(hash, label, onFinalized);
+      poll(hash, label, onFinalized, recoverFromReadback);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `${label} was not submitted.`);
     } finally {
@@ -100,7 +100,14 @@ export function CaseCourtPage() {
       const client = await createReadClient();
       const value = await readCaseSnapshot(client, addresses.caseCourt, caseId);
       setCaseSnapshot(Object.keys(value).length ? value : null);
-      setMessage(Object.keys(value).length ? `Loaded case ${caseId} at version ${value.version}.` : 'No case found at that identifier.');
+      let reconciled = false;
+      if (Object.keys(value).length && pending?.recoverFromReadback) {
+        reconciled = await pending.recoverFromReadback();
+        if (reconciled) setPending(null);
+      }
+      setMessage(Object.keys(value).length
+        ? `Loaded case ${caseId} at version ${value.version}.${reconciled ? ` On-chain readback confirms ${pending?.label}; the stale write lock is cleared.` : ''}`
+        : 'No case found at that identifier.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Case readback failed.');
     } finally { setBusy(false); }
@@ -155,11 +162,20 @@ function OpenCaseSection({ wallet, address, run, reload, caseId }: {
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!ready || !wallet) return;
+    let committedOpeningDigest = '';
     await run(`Open case ${caseId}`, async () => {
       const digest = await sha256Utf8(summary);
+      committedOpeningDigest = digest;
       const actionId = newActionId('OPEN');
       return writeContractMethod(wallet, address, 'open_case', [caseId, actionId, respondent, caseType, 1, digest]);
-    }, reload);
+    }, reload, async () => {
+      if (!committedOpeningDigest) return false;
+      const client = await createReadClient();
+      const state = await readCaseSnapshot(client, address, caseId);
+      return state.case_id === caseId && state.version === '1'
+        && state.petitioner?.toLowerCase() === wallet.address.toLowerCase()
+        && state.opening_evidence_digest === committedOpeningDigest;
+    });
   }
   return <section className="settings-card">
     <SectionLabel index="B">OPEN CASE</SectionLabel>
@@ -191,7 +207,16 @@ function EvidenceSection({ wallet, address, run, reload, caseId, version, phase,
     const capturedId = evidenceId; const capturedText = text;
     await run(`Append evidence ${evidenceId} to ${caseId}`, () => writeContractMethod(
       wallet, address, 'append_evidence', [caseId, version, actionId, evidenceId, digest, 1, sourceRefDigest],
-    ), () => { setEvidenceTexts((prev) => ({ ...prev, [capturedId]: capturedText })); void reload(); });
+    ), () => { setEvidenceTexts((prev) => ({ ...prev, [capturedId]: capturedText })); void reload(); }, async () => {
+      const client = await createReadClient();
+      const [state, record] = await Promise.all([
+        readCaseSnapshot(client, address, caseId),
+        readCaseEvidence(client, address, caseId, capturedId),
+      ]);
+      return Number(state.version) === version + 1 && Number(state.evidence_count) >= evidenceCount + 1
+        && record.evidence_id === capturedId && record.digest === digest
+        && record.source_reference_digest === sourceRefDigest;
+    });
   }
   async function submitLock() {
     if (!wallet || version === undefined) return;
