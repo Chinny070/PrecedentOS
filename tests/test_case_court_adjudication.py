@@ -256,8 +256,12 @@ def test_prompt_spells_out_output_format_and_finding_bounds(direct_vm, direct_de
     )
     assert "one valid JSON object" in prompt
     assert "no markdown fences, comments, trailing commas" in prompt
-    assert "quote: exact contiguous quote" in prompt
+    assert "quote must be a contiguous, byte-for-byte substring" in prompt
     assert "byte-for-byte" in prompt
+    assert "1 to 180 characters inclusive" in prompt
+    assert "Quotes longer than 180 characters are invalid" in prompt
+    assert "scope must be CASE" in prompt
+    assert "source_id must exactly match an evidence_id" in prompt
 
 
 @pytest.mark.parametrize("answer,error", [
