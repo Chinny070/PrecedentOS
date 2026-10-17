@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { isAddress } from '../config/chain';
 import { Icon } from '../components/Icons';
 import { SectionLabel, StatusTag } from '../components/StatusTag';
@@ -23,6 +23,29 @@ function newActionId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36).toUpperCase()}`;
 }
 
+function evidenceStorageKey(address: string, caseId: string): string {
+  return `precedentos:evidence-text:v1:${address.toLowerCase()}:${caseId}`;
+}
+
+function readRememberedEvidence(address: string, caseId: string): Record<string, string> {
+  if (!validRecordId(caseId)) return {};
+  try {
+    const raw = localStorage.getItem(evidenceStorageKey(address, caseId));
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).filter(([id, text]) =>
+      validRecordId(id) && typeof text === 'string' && text.length > 0));
+  } catch {
+    return {};
+  }
+}
+
+function rememberEvidence(address: string, caseId: string, evidenceId: string, text: string): Record<string, string> {
+  const next = { ...readRememberedEvidence(address, caseId), [evidenceId]: text };
+  try { localStorage.setItem(evidenceStorageKey(address, caseId), JSON.stringify(next)); } catch { /* Browser storage may be unavailable. */ }
+  return next;
+}
+
 function ReadbackCard({ title, value, empty }: { title: string; value: Record<string, string> | null; empty: string }) {
   if (!value || Object.keys(value).length === 0) return <div className="empty-state"><span>∅</span><b>{empty}</b></div>;
   return <div className="readback-card"><h4>{title}</h4><div className="readback-grid">
@@ -45,6 +68,13 @@ export function CaseCourtPage() {
   // append time, and the full text is sent once, explicitly, by the judgment
   // submission below.
   const [evidenceTexts, setEvidenceTexts] = useState<Record<string, string>>({});
+
+  // Keep the packet text on this browser, scoped to the deployed contract and
+  // case. Restore it when the case is selected; chain readback below verifies
+  // each saved text against its committed digest before it can be used.
+  useEffect(() => {
+    setEvidenceTexts(readRememberedEvidence(addresses.caseCourt, caseId));
+  }, [addresses.caseCourt, caseId]);
 
   const configured = isAddress(addresses.caseCourt);
   const [pending, setPending] = useState<{ hash: `0x${string}`; label: string; onFinalized?: () => void; recoverFromReadback?: () => Promise<boolean> } | null>(null);
@@ -100,6 +130,22 @@ export function CaseCourtPage() {
       const client = await createReadClient();
       const value = await readCaseSnapshot(client, addresses.caseCourt, caseId);
       setCaseSnapshot(Object.keys(value).length ? value : null);
+      if (Object.keys(value).length) {
+        const remembered = readRememberedEvidence(addresses.caseCourt, caseId);
+        const verified: Record<string, string> = {};
+        for (const [id, text] of Object.entries(remembered)) {
+          try {
+            const [record, digest] = await Promise.all([
+              readCaseEvidence(client, addresses.caseCourt, caseId, id),
+              sha256Utf8(text),
+            ]);
+            if (record.evidence_id === id && record.digest === digest) verified[id] = text;
+          } catch { /* Ignore saved drafts that do not match committed evidence. */ }
+        }
+        setEvidenceTexts(verified);
+      } else {
+        setEvidenceTexts({});
+      }
       let reconciled = false;
       if (Object.keys(value).length && pending?.recoverFromReadback) {
         reconciled = await pending.recoverFromReadback();
@@ -205,6 +251,10 @@ function EvidenceSection({ wallet, address, run, reload, caseId, version, phase,
     const sourceRefDigest = await sha256Utf8(`SOURCE-REFERENCE: ${evidenceId}`);
     const actionId = newActionId('EV');
     const capturedId = evidenceId; const capturedText = text;
+    // Save before opening the wallet prompt so a refresh or interrupted
+    // transaction does not erase the user's packet. loadCase verifies it on-chain.
+    const remembered = rememberEvidence(address, caseId, capturedId, capturedText);
+    setEvidenceTexts(() => remembered);
     await run(`Append evidence ${evidenceId} to ${caseId}`, () => writeContractMethod(
       wallet, address, 'append_evidence', [caseId, version, actionId, evidenceId, digest, 1, sourceRefDigest],
     ), () => { setEvidenceTexts((prev) => ({ ...prev, [capturedId]: capturedText })); void reload(); }, async () => {
@@ -236,12 +286,12 @@ function EvidenceSection({ wallet, address, run, reload, caseId, version, phase,
     <p>Current phase: <b>{phase ?? 'unknown'}</b> · evidence count: <b>{evidenceCount}</b></p>
     <form className="form-row" onSubmit={submitEvidence}>
       <label>Evidence ID<input value={evidenceId} maxLength={48} onChange={(e) => setEvidenceId(e.target.value.toUpperCase())}/></label>
-      <label className="full-label">Evidence text (hashed locally; exact bytes required for the judgment packet)<textarea value={text} onChange={(e) => setText(e.target.value)} rows={3}/></label>
+      <label className="full-label">Evidence text (saved automatically in this browser)<textarea value={text} onChange={(e) => setText(e.target.value)} rows={3}/></label>
       <button type="submit" className="button button--dark" disabled={!ready}>Submit append_evidence <Icon name="arrow" size={14}/></button>
     </form>
     <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined} onClick={() => void submitLock()}>Submit lock_evidence</button>
-    {Object.keys(evidenceTexts).length > 0 && <div className="readback-card"><h4>Locally remembered evidence text (for the judgment packet)</h4><div className="readback-grid">
-      {Object.entries(evidenceTexts).map(([id, value]) => <div key={id}><span>{id}</span><code>{value.slice(0, 80)}{value.length > 80 ? '…' : ''}</code></div>)}
+    {Object.keys(evidenceTexts).length > 0 && <div className="readback-card"><h4>Saved evidence text · restored and checked against the on-chain digest</h4><div className="readback-grid">
+      {Object.entries(evidenceTexts).map(([id, value]) => <div key={id}><span>{id}</span><code>{value}</code></div>)}
     </div></div>}
   </section>;
 }
@@ -268,7 +318,7 @@ function JudgmentSection({ wallet, address, run, reload, caseId, version, eviden
   }
   return <section className="settings-card">
     <SectionLabel index="D">AI JUDGMENT</SectionLabel>
-    <p>The evidence packet is rebuilt automatically from the locally remembered evidence text appended above, in append order. It must match the locked on-chain digests exactly.</p>
+    <p>The evidence packet is rebuilt automatically from text saved in this browser and checked against each on-chain digest when you load the case. You do not need to copy it elsewhere.</p>
     <form className="form-row" onSubmit={submit}>
       <label>Judgment ID<input value={judgmentId} maxLength={48} onChange={(e) => setJudgmentId(e.target.value.toUpperCase())}/></label>
       <button type="submit" className="button button--dark" disabled={!ready}>Submit adjudicate_case <Icon name="arrow" size={14}/></button>
