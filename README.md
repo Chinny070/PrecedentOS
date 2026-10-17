@@ -43,10 +43,9 @@ npm run build
 npm run dev
 ```
 
-The browser smoke suite is an optional, pinned setup because Playwright's browser package is not part of the production frontend toolchain:
+Playwright is included in the frontend development lockfile. Install its browser once, then run the browser smoke suite:
 
 ```powershell
-npm install --no-save --package-lock=false @playwright/test@1.56.1
 npx playwright install chromium
 npm run test:e2e
 ```
@@ -58,5 +57,12 @@ The three `VITE_GENLAYER_*_ADDRESS` values in `.env.local` are public addresses 
 Frontend write success requires a finalized receipt, majority agreement, and `FINISHED_WITH_RETURN`; a timeout remains unresolved and must not trigger a duplicate write. After a refresh, saved transaction entries are unverified local notes until checked against the network. Dependent case actions require the latest exact on-chain version.
 
 Either named party can submit and lock evidence under the current contract. There is no respondent acknowledgement or general response window, and the appellate reviewer is a mutually approved named participant rather than an independent tribunal. Those are prototype limitations. Appeal freezes can still require the contract's appeal/recovery path if review stalls. Use disposable fictional cases for demonstrations.
+
+## Current verification snapshot (2026-10-17)
+
+- Python: 266 passed, 4 skipped. GenVM lint/schema/typecheck passed from cached runner metadata; that does not prove compatibility with the live Studionet runner.
+- Frontend: lint, typecheck, 93 unit tests, and production build passed. All 11 Playwright scenarios reported `ok`; this Windows run did not return an exit code after the last test because its runner/server shutdown stalled.
+- The current CaseCourt source changes are not deployed. The current user demonstration address is `0xC4d6530213c2b8929dc66064e67082aB01bC7c4c`; its source was fetched read-only and does not match the working tree. The live case `FICT-CASE-STUDIO-006` remains `EVIDENCE_LOCKED`, version 4, and `get_judgment` is empty after an Undetermined adjudication. No accepted persisted judgment or formal appeal is claimed.
+- Public Vercel `/`, `/case-court`, `/precedents`, `/compare`, and `/web-evidence` all returned HTTP 200 with no page errors, console errors, or failed responses in a read-only headless browser check. The CaseCourt route also fit a 390px viewport without horizontal overflow. Its page currently lacks `lapse_stalled_appeal`, legacy challenge exit, and recovery controls, so the updated UI has not been published to Vercel.
 
 See [deployment manifest](docs/V2_DEPLOYMENT_MANIFEST.md), [CaseCourt readiness](docs/V2_CASECOURT_READINESS.md), [Stage 9 live verification](docs/V2_STAGE_9_LIVE_VERIFICATION.md), [acceptance matrix](docs/V2_ACCEPTANCE_MATRIX.md), and [implementation masterplan](docs/V2_IMPLEMENTATION_MASTERPLAN.md) for evidence provenance and outstanding live-work gates.

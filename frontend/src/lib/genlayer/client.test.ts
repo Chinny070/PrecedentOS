@@ -18,7 +18,7 @@ const sdkClient = {
 vi.mock('genlayer-js', () => ({ createClient: vi.fn(() => sdkClient) }));
 vi.mock('genlayer-js/chains', () => ({ studionet: { id: 61999, rpcUrls: { default: { http: ['https://studio.genlayer.com/api'] } } } }));
 
-const { assertEvaluationReadbackBinding, assertWalletSessionCurrent, connectInjectedWallet, probeStudionetRpc, readAppeal, readAppellateRuling, readPrecedent, trackTransactionLifecycle, watchWalletSession, writeContractMethod } = await import('./client');
+const { assertEvaluationReadbackBinding, assertWalletSessionCurrent, connectInjectedWallet, probeStudionetRpc, readAppeal, readAppealRecoveryStatus, readAppellateRuling, readPrecedent, trackTransactionLifecycle, watchWalletSession, writeContractMethod } = await import('./client');
 
 function providerFor(overrides: Record<string, unknown> = {}): InjectedProvider {
   return {
@@ -319,6 +319,33 @@ describe('CaseCourt write argument validation and type preservation', () => {
     )).rejects.toThrow('HTTPS');
   });
 
+  it('accepts recovery, withdrawal, challenge exit, and closure calls with exact ABI argument shapes', async () => {
+    const calls: [string, CalldataEncodable[]][] = [
+      ['lapse_stalled_appeal', ['FICT-CASE-001', 'AP-1', 8, 'ACT-LAPSE']],
+      ['request_appeal_withdrawal', ['FICT-CASE-001', 'AP-1', 8, 'ACT-WITHDRAW', 'UNABLE_TO_PROCEED']],
+      ['approve_appeal_withdrawal', ['FICT-CASE-001', 'AP-1', 8, 'ACT-WITHDRAW-OK']],
+      ['request_case_closure', ['FICT-CASE-001', 8, 'ACT-CLOSE-REQUEST']],
+      ['approve_case_closure', ['FICT-CASE-001', 9, 'ACT-CLOSE-APPROVE']],
+      ['unfreeze_case', ['FICT-CASE-001', 10, 'ACT-UNFREEZE']],
+      ['withdraw_decision_challenge', ['FICT-CASE-001', 11, 'ACT-CHALLENGE-WITHDRAW']],
+      ['lapse_decision_challenge', ['FICT-CASE-001', 12, 'ACT-CHALLENGE-LAPSE']],
+    ];
+    for (const [method, args] of calls) {
+      sdkClient.writeContract.mockClear();
+      await expect(writeContractMethod(session(), caseCourtAddress, method, args)).resolves.toBe(hash);
+      expect(sdkClient.writeContract.mock.calls[0][0]).toMatchObject({ functionName: method, args });
+    }
+  });
+
+  it('rejects recovery and closure calls with incorrect argument counts', async () => {
+    await expect(writeContractMethod(session(), caseCourtAddress, 'lapse_stalled_appeal', ['FICT-CASE-001', 'AP-1', 8]))
+      .rejects.toThrow('exactly four arguments');
+    await expect(writeContractMethod(session(), caseCourtAddress, 'request_case_closure', ['FICT-CASE-001', 8]))
+      .rejects.toThrow('exactly three arguments');
+    await expect(writeContractMethod(session(), caseCourtAddress, 'lapse_decision_challenge', ['FICT-CASE-001', 8, 'bad/id']))
+      .rejects.toThrow('Invalid action identifier');
+  });
+
   it('rejects an unsupported CaseCourt write method name', async () => {
     await expect(writeContractMethod(session(), caseCourtAddress, 'not_a_real_method', [])).rejects.toThrow('Unsupported PrecedentOS write method');
   });
@@ -386,9 +413,16 @@ describe('CaseCourt write argument validation and type preservation', () => {
   });
 
   it('reads the exact appeal filing and appellate ruling views', async () => {
-    sdkClient.readContract.mockResolvedValueOnce({ appeal_id: 'AP-1' }).mockResolvedValueOnce({ ruling_commitment: 'a'.repeat(64) });
+    sdkClient.readContract.mockResolvedValueOnce({ appeal_id: 'AP-1' }).mockResolvedValueOnce({ ruling_commitment: 'a'.repeat(64) })
+      .mockResolvedValueOnce({ appeal_is_active: 'true', recovery_authority: 'CASE_PARTY_MAY_LAPSE_AFTER_FREEZE_EXPIRY' });
     expect(await readAppeal(session().client, caseCourtAddress, 'AP-1')).toEqual({ appeal_id: 'AP-1' });
     expect(await readAppellateRuling(session().client, caseCourtAddress, 'AP-1')).toEqual({ ruling_commitment: 'a'.repeat(64) });
-    expect(sdkClient.readContract.mock.calls.map(([call]) => call.functionName)).toEqual(['get_appeal', 'get_appellate_ruling']);
+    expect(await readAppealRecoveryStatus(session().client, caseCourtAddress, 'FICT-CASE-001', 'AP-1')).toMatchObject({
+      appeal_is_active: 'true', recovery_authority: 'CASE_PARTY_MAY_LAPSE_AFTER_FREEZE_EXPIRY',
+    });
+    expect(sdkClient.readContract.mock.calls.map(([call]) => [call.functionName, call.args])).toEqual([
+      ['get_appeal', ['AP-1']], ['get_appellate_ruling', ['AP-1']],
+      ['get_appeal_recovery_status', ['FICT-CASE-001', 'AP-1']],
+    ]);
   });
 });

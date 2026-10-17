@@ -421,6 +421,62 @@ def test_only_other_named_party_can_challenge_exact_decision_once(direct_vm, dir
     assert contract.get_appeal("FICT-CHALLENGE-2") == {}
 
 
+def test_legacy_challenger_can_withdraw_and_original_decision_remains_operative(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    contract = direct_deploy(str(CONTRACT))
+    prepare_decision(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.sender = direct_bob
+    contract.challenge_decision(
+        "FICT-CASE-0001", 4, "ACTION-CHALLENGE-1", "FICT-CHALLENGE-1",
+        DIGEST_C, "MATERIAL_ERROR", DIGEST_B,
+    )
+    before = contract.get_case("FICT-CASE-0001")
+    direct_vm.sender = direct_alice
+    with direct_vm.expect_revert("caller is not the appeal appellant"):
+        contract.withdraw_decision_challenge("FICT-CASE-0001", int(before["version"]), "ACTION-WITHDRAW-1")
+    assert contract.get_case("FICT-CASE-0001") == before
+
+    direct_vm.sender = direct_bob
+    contract.withdraw_decision_challenge("FICT-CASE-0001", int(before["version"]), "ACTION-WITHDRAW-1")
+    case = contract.get_case("FICT-CASE-0001")
+    appeal = contract.get_appeal("FICT-CHALLENGE-1")
+    assert case["phase"] == "DECISION_RECORDED"
+    assert case["decision_ref_id"] == before["decision_ref_id"] == "FICT-RESULT-1"
+    assert case["decision_digest"] == before["decision_digest"] == DIGEST_C
+    assert appeal["status"] == "WITHDRAWN_BY_CHALLENGER"
+    assert appeal["resolution"] == "ORIGINAL_DECISION_RETAINED_UNCHANGED"
+    with direct_vm.expect_revert("case has no open legacy challenge"):
+        contract.lapse_decision_challenge("FICT-CASE-0001", int(case["version"]), "ACTION-LAPSE-LATE")
+
+
+def test_expired_legacy_challenge_can_be_lapsed_by_anyone_without_changing_decision(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie,
+):
+    contract = direct_deploy(str(CONTRACT))
+    prepare_decision(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    direct_vm.sender = direct_bob
+    contract.challenge_decision(
+        "FICT-CASE-0001", 4, "ACTION-CHALLENGE-1", "FICT-CHALLENGE-1",
+        DIGEST_C, "MATERIAL_ERROR", DIGEST_B,
+    )
+    before = contract.get_case("FICT-CASE-0001")
+    with direct_vm.expect_revert("response window has not elapsed"):
+        contract.lapse_decision_challenge("FICT-CASE-0001", int(before["version"]), "ACTION-LAPSE-EARLY")
+    assert contract.get_case("FICT-CASE-0001") == before
+
+    appeal = contract.get_appeal("FICT-CHALLENGE-1")
+    direct_vm.warp("2030-01-08T00:00:00Z")
+    direct_vm.sender = direct_charlie
+    contract.lapse_decision_challenge("FICT-CASE-0001", int(before["version"]), "ACTION-LAPSE-1")
+    after = contract.get_case("FICT-CASE-0001")
+    assert after["phase"] == "DECISION_RECORDED"
+    assert after["decision_ref_id"] == before["decision_ref_id"] == "FICT-RESULT-1"
+    assert after["decision_digest"] == before["decision_digest"] == DIGEST_C
+    assert contract.get_appeal("FICT-CHALLENGE-1")["status"] == "LAPSED_TIMEOUT"
+
+
 def test_new_evidence_appeal_stores_only_the_supplied_commitment(
     direct_vm, direct_deploy, direct_alice, direct_bob
 ):

@@ -6,7 +6,7 @@ import { useApp } from '../state/AppContext';
 import { sha256Utf8, validRecordId } from '../lib/commitments';
 import { prepareAppealJudgmentTarget } from '../lib/genlayer/caseCourtAppeals';
 import {
-  createReadClient, readAppeal, readAppellateRuling, readCaseJudgment, readCase as readCaseSnapshot,
+  createReadClient, readAppeal, readAppealRecoveryStatus, readAppellateRuling, readCaseJudgment, readCase as readCaseSnapshot,
   readWebSource, trackTransactionLifecycle, writeContractMethod, type WalletSession,
 } from '../lib/genlayer/client';
 import type { TransactionTrace } from '../types/domain';
@@ -137,6 +137,8 @@ export function CaseCourtPage() {
     <JudgmentSection wallet={wallet} address={addresses.caseCourt} run={run} reload={loadCase} caseId={caseId}
       version={version} evidenceTexts={evidenceTexts} />
     <AppealSection wallet={wallet} address={addresses.caseCourt} run={run} reload={loadCase} caseId={caseId} version={version} evidenceTexts={evidenceTexts} />
+    <CaseRecoverySection wallet={wallet} address={addresses.caseCourt} run={run} reload={loadCase} caseId={caseId}
+      version={version} phase={caseSnapshot?.phase} appealFreeze={caseSnapshot?.appeal_freeze === 'true'} />
     <WebRenderSection wallet={wallet} address={addresses.caseCourt} run={run} caseId={caseId} />
 
     {message && <div role="status" className="inline-message">{message}{pending && <button type="button" className="button button--dark button--small" disabled={rechecking} onClick={() => void recheckPending()} style={{ marginLeft: 12 }}>{rechecking ? 'Checking…' : 'Check again'}</button>}</div>}
@@ -371,6 +373,73 @@ function AppealSection({ wallet, address, run, reload, caseId, version, evidence
     </div>
     <ReadbackCard title={`get_appeal("${appealId}")`} value={appeal} empty="No appeal loaded yet." />
     <ReadbackCard title={`get_appellate_ruling("${appealId}")`} value={ruling} empty="No appellate ruling loaded yet." />
+  </section>;
+}
+
+function CaseRecoverySection({ wallet, address, run, reload, caseId, version, phase, appealFreeze }: {
+  wallet: WalletSession | null; address: string; run: Runner; reload: () => Promise<void>;
+  caseId: string; version?: number; phase?: string; appealFreeze: boolean;
+}) {
+  const [appealId, setAppealId] = useState('');
+  const [withdrawalReason, setWithdrawalReason] = useState<'CONSENSUAL_EXIT' | 'UNABLE_TO_PROCEED' | 'EVIDENCE_UNAVAILABLE'>('UNABLE_TO_PROCEED');
+  const [recovery, setRecovery] = useState<Record<string, string> | null>(null);
+
+  async function loadRecovery() {
+    if (!validRecordId(caseId) || !validRecordId(appealId)) return;
+    const client = await createReadClient();
+    const value = await readAppealRecoveryStatus(client, address, caseId, appealId);
+    setRecovery(Object.keys(value).length ? value : null);
+  }
+  async function mutate(method: string, args: Parameters<typeof writeContractMethod>[3], label: string) {
+    if (!wallet) return;
+    await run(label, () => writeContractMethod(wallet, address, method, args), () => {
+      void reload(); void loadRecovery();
+    });
+  }
+  function currentArgs(action: string) {
+    if (version === undefined || !validRecordId(caseId)) return null;
+    return [caseId, version, newActionId(action)];
+  }
+
+  return <section className="settings-card">
+    <SectionLabel index="G">WITHDRAWAL, RECOVERY &amp; CLOSURE</SectionLabel>
+    <p>Timeout recovery only releases an expired freeze and restores the existing decision. Appeal withdrawal still requires the opposing party unless the appeal freeze window expires. Case closure requires both named parties.</p>
+    <div className="form-row">
+      <label>Appeal ID<input value={appealId} maxLength={48} onChange={(event) => setAppealId(event.target.value.toUpperCase())}/></label>
+      <button type="button" className="button button--dark button--small" disabled={!validRecordId(appealId)} onClick={() => void loadRecovery()}>Load recovery status</button>
+      <label>Withdrawal reason<select value={withdrawalReason} onChange={(event) => setWithdrawalReason(event.target.value as typeof withdrawalReason)}>
+        <option value="CONSENSUAL_EXIT">CONSENSUAL_EXIT</option><option value="UNABLE_TO_PROCEED">UNABLE_TO_PROCEED</option><option value="EVIDENCE_UNAVAILABLE">EVIDENCE_UNAVAILABLE</option>
+      </select></label>
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined || !validRecordId(appealId)} onClick={() => {
+        if (version !== undefined) void mutate('request_appeal_withdrawal', [caseId, appealId, version, newActionId('WITHDRAW'), withdrawalReason], `Request withdrawal of ${appealId}`);
+      }}>request_appeal_withdrawal</button>
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined || !validRecordId(appealId)} onClick={() => {
+        if (version !== undefined) void mutate('approve_appeal_withdrawal', [caseId, appealId, version, newActionId('WITHDRAW-OK')], `Approve withdrawal of ${appealId}`);
+      }}>approve_appeal_withdrawal</button>
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined || !validRecordId(appealId)} onClick={() => {
+        if (version !== undefined) void mutate('lapse_stalled_appeal', [caseId, appealId, version, newActionId('APPEAL-LAPSE')], `Lapse expired appeal ${appealId}`);
+      }}>lapse_stalled_appeal</button>
+      <ReadbackCard title={`get_appeal_recovery_status("${appealId}")`} value={recovery} empty="No recovery status loaded yet." />
+    </div>
+    <div className="form-row">
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined || phase !== 'FROZEN' || appealFreeze} onClick={() => {
+        const args = currentArgs('UNFREEZE'); if (args) void mutate('unfreeze_case', args, `Release expired freeze for ${caseId}`);
+      }}>unfreeze_case (expired non-appeal freeze)</button>
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined || phase !== 'CHALLENGE_OPEN'} onClick={() => {
+        const args = currentArgs('CHALLENGE-WITHDRAW'); if (args) void mutate('withdraw_decision_challenge', args, `Withdraw legacy challenge for ${caseId}`);
+      }}>withdraw_decision_challenge</button>
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined || phase !== 'CHALLENGE_OPEN'} onClick={() => {
+        const args = currentArgs('CHALLENGE-LAPSE'); if (args) void mutate('lapse_decision_challenge', args, `Lapse expired legacy challenge for ${caseId}`);
+      }}>lapse_decision_challenge</button>
+    </div>
+    <div className="form-row">
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined} onClick={() => {
+        const args = currentArgs('CLOSE-REQ'); if (args) void mutate('request_case_closure', args, `Request closure of ${caseId}`);
+      }}>request_case_closure</button>
+      <button type="button" className="button button--dark button--small" disabled={!wallet || version === undefined} onClick={() => {
+        const args = currentArgs('CLOSE-OK'); if (args) void mutate('approve_case_closure', args, `Approve closure of ${caseId}`);
+      }}>approve_case_closure (other party)</button>
+    </div>
   </section>;
 }
 

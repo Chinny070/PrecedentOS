@@ -182,6 +182,13 @@ export async function readAppellateRuling(client: GenLayerClient, address: strin
   return readRecordView(client, address, 'get_appellate_ruling', [appealId], 'CaseCourt appellate ruling');
 }
 
+export async function readAppealRecoveryStatus(
+  client: GenLayerClient, address: string, caseId: string, appealId: string,
+): Promise<Record<string, string>> {
+  if (!validRecordId(caseId) || !validRecordId(appealId)) throw new Error('Invalid CaseCourt case or appeal identifier.');
+  return readRecordView(client, address, 'get_appeal_recovery_status', [caseId, appealId], 'CaseCourt appeal recovery status');
+}
+
 export async function readWebSource(
   client: GenLayerClient, address: string, caseId: string, sourceId: string, version: number,
 ): Promise<Record<string, string>> {
@@ -269,6 +276,8 @@ const CASE_COURT_WRITE_METHODS = new Set([
   'file_appeal', 'append_appeal_evidence', 'lock_appeal_evidence',
   'propose_appeal_reviewer', 'approve_appeal_reviewer', 'begin_appeal_review',
   'adjudicate_appeal', 'resolve_appeal', 'request_appeal_withdrawal', 'approve_appeal_withdrawal',
+  'lapse_stalled_appeal', 'request_case_closure', 'approve_case_closure', 'unfreeze_case',
+  'withdraw_decision_challenge', 'lapse_decision_challenge',
   'register_web_source', 'approve_web_source', 'request_web_source_capture',
   'capture_web_source', 'report_web_source_unavailable',
 ]);
@@ -390,6 +399,20 @@ async function validateCaseCourtWrite(functionName: string, args: CalldataEncoda
     case 'approve_appeal_withdrawal': {
       if (args.length !== 4) throw new Error('approve_appeal_withdrawal requires exactly four arguments.');
       checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      return;
+    }
+    case 'lapse_stalled_appeal': {
+      if (args.length !== 4) throw new Error('lapse_stalled_appeal requires exactly four arguments.');
+      checkedId(args[0], 'case'); checkedId(args[1], 'appeal'); checkedVersion(args[2], 'Expected version'); checkedId(args[3], 'action');
+      return;
+    }
+    case 'request_case_closure':
+    case 'approve_case_closure':
+    case 'unfreeze_case':
+    case 'withdraw_decision_challenge':
+    case 'lapse_decision_challenge': {
+      if (args.length !== 3) throw new Error(`${functionName} requires exactly three arguments.`);
+      checkedId(args[0], 'case'); checkedVersion(args[1], 'Expected version'); checkedId(args[2], 'action');
       return;
     }
     case 'register_web_source': {

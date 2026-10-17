@@ -1,6 +1,6 @@
 # CaseCourt Readiness Review
 
-**Review date:** 2026-10-14
+**Review date:** 2026-10-14 (historical baseline; source update 2026-10-17)
 **Target:** stable GenLayer Studionet, chain ID `61999`
 **Starting repository commit:** `ee9d4bf1df57de1509b7e57db2b8ae25a8a20db1`
 **Contract source:** [`contracts/case_court.py`](../contracts/case_court.py)
@@ -8,16 +8,16 @@
 
 ## Decision
 
-- **Phase A is now reported complete by the user** on a fresh CaseCourt deployment: case creation, evidence append/readback, evidence lock/root readback, and stale-version rejection with unchanged state. Detailed transaction IDs and observations are recorded below. This is user-supplied evidence, not an independently retrieved receipt or source match.
-- **CONDITIONAL GO for one fictional AI judgment only after a separate user approval of the displayed fee and the test arguments.** The judgment is an AI-assisted protocol assessment, not legal advice or a legally authoritative judgment.
-- **NO-GO for appeal/reviewer lifecycle testing and production governance.** The current reviewer is the opposing case party, not an independent reviewer, and an active appeal can leave the case frozen indefinitely. Do not file an appeal in Studio until reviewer selection and freeze-recovery policy are approved and implemented.
+- **Phase A is reported complete** on earlier deployments by the user: case creation, evidence append/readback, evidence lock/root readback, and stale-version rejection. This host also independently read current deployed case FICT-CASE-STUDIO-006 at 0xC4d6530213c2b8929dc66064e67082aB01bC7c4c; it remains EVIDENCE_LOCKED, version 4, with no persisted decision after the user's Undetermined adjudication report.
+- **Fictional prototype lifecycle testing is permitted after the updated source is deployed and the user reviews the fee.** An AI result is a protocol assessment, not legal advice or legally authoritative.
+- **Production governance remains NO-GO.** The current repository source requires a mutually proposed and approved non-party reviewer, but this is still not a vetted neutral panel. Earlier deployed versions used the opposing case party as reviewer. New source recovery transitions also require a fresh deployment before they exist on-chain.
 - **Codex did not deploy, request signatures, submit transactions, or invoke Web Render.** The user performed the Studio deployment and Phase A calls described below.
 
 This remains a source/local-test review plus user-reported Studio evidence. The current CaseCourt address is recorded in the deployment manifest; transaction retrieval and exact deployed source identity are not independently verified.
 
 ## Contract inventory
 
-Cached GenVM lint/schema reports `CaseCourt`, **50 public methods: 28 writes and 22 views**, with **zero constructor arguments**. The contract header pins `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6`. The cached linter passed but could not fetch the latest runner metadata (`WinError 10013`) and reports a newer runner hash; this is not a stable Studionet runner compatibility proof.
+Cached GenVM lint/schema reports `CaseCourt`, **55 public methods: 33 writes and 22 views**, with **zero constructor arguments**. The contract header pins `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6`. The cached linter passed but could not fetch the latest runner metadata (`WinError 10013`) and reports a newer runner hash; this is not a stable Studionet runner compatibility proof.
 
 The public write surface covers:
 
@@ -26,6 +26,7 @@ The public write surface covers:
 - Contradiction/authority graph: `file_contradiction_challenge`, `evaluate_contradiction_challenge`, `resolve_contradiction_challenge`, `record_authority_relationship`.
 - Appeals: `file_appeal`, `append_appeal_evidence`, `lock_appeal_evidence`, `begin_appeal_review`, `adjudicate_appeal`, `resolve_appeal`, `request_appeal_withdrawal`, `approve_appeal_withdrawal`.
 - Closure and ordinary challenge freeze: `request_case_closure`, `approve_case_closure`, `request_freeze`, `unfreeze_case`.
+- Recovery and legacy challenge exits: `withdraw_decision_challenge`, `lapse_decision_challenge`, `lapse_stalled_appeal`.
 
 Read views include `get_case`, `get_case_count`, `has_case`, `get_evidence`, `get_judgment`, `get_appeal`, `get_appeal_filing`, `get_appellate_ruling`, `get_appeal_evidence`, `get_appeal_recovery_status`, `get_case_action`, `get_case_action_count`, `get_action_count`, `get_current_authority`, `get_authority_relationship`, `get_authority_relationship_count`, `get_contradiction_challenge`, `get_web_source`, `get_web_verification`, `get_web_retrieval_request`, `get_web_source_comparison`, and `is_case_closure_eligible`.
 
@@ -41,17 +42,17 @@ Read views include `get_case`, `get_case_count`, `has_case`, `get_evidence`, `ge
 
 ## Reviewer governance: unresolved policy gate
 
-`_require_not_appellant` enforces two conditions: caller is not the appellant, and caller is one of the two named case parties. This prevents appellant self-review and outsider review. With exactly two case parties, the only eligible reviewer is the opposing party. In a common case, this is also the original judgment submitter. `begin_appeal_review` lets that party initiate the review; there is no separately agreed reviewer address, reviewer authorization registry, conflict declaration, or independent-panel selection mechanism.
+The current source requires one named case party to propose a non-party reviewer and the other party to approve the exact reviewer commitment. Only that bound address may begin review or adjudicate. This establishes mutual address-level selection, not qualifications, conflict screening, identity, legal independence, or panel governance. Older deployed instances may still use the opposing case party as reviewer; check source per address.
 
-That is an **adversarial opposing-party review prototype**, not neutral appellate review. Direct Mode does not establish participant identity on Studionet. The source, UI, and deployment must not call this reviewer independent or describe the AI output as a legally authoritative appellate judgment.
+This remains a **fictional prototype**, not neutral appellate governance. Direct Mode does not establish participant identity on Studionet. The UI may say the reviewer is mutually selected, but must not claim the reviewer is independent or describe AI output as a legally authoritative appellate judgment.
 
 No code change can safely create independent reviewer governance without a protocol rule. Minimal policy choices for approval are:
 
-1. **Fictional prototype only:** keep the opposing-party reviewer for fictional tests, label it non-independent, prohibit real cases, and accept that the existing freeze may persist indefinitely if review fails or stalls. Do not enable a production appeal UI.
-2. **Mutually approved named reviewer:** require both case parties to approve a non-party reviewer address in auditable transactions before review. This proves address-level agreement only, not reviewer qualifications or real-world independence; decide conflict disclosure and what happens if the reviewer becomes unavailable.
+1. **Fictional prototype only:** use the existing mutually approved non-party reviewer flow for fictional tests; label the reviewer as party-selected and unvetted; prohibit real cases.
+2. **Governed reviewer set/panel:** approve an explicit authority for reviewer admission, selection, replacement, conflicts, and quorum. This requires policy and implementation; no DAO, multisig, or identity system is presumed here.
 3. **Governed reviewer set/panel:** approve an explicit authority for reviewer admission, selection, replacement, conflicts, and quorum. This requires a governance policy and implementation; no DAO, multisig, or identity system is presumed here.
 
-For any production appeal path, separately define a fair deadline and recovery authority. Current code deliberately has no unilateral escape: `unfreeze_case` rejects an active appeal freeze; pre-ruling withdrawal requires appellant request plus the other party's approval; withdrawal closes after appellate review begins or a ruling is recorded. If validators return Undetermined or the AI call fails, no ruling write should persist, but the filing freeze remains. If the reviewer disappears or the ruling remains pending resolution, the case can stay frozen. A second-level appeal is available only after a resolved first-level appeal and targets that exact ruling; it can freeze the case again. These safeguards block unilateral erasure but do not provide liveness.
+The current source adds a fixed seven-day recovery deadline. `unfreeze_case` still rejects an active appeal freeze; bilateral pre-ruling withdrawal remains available; and any caller may lapse an eligible stalled appeal after the deadline, including an appellant-requested withdrawal, while retaining the original decision. Legacy challenges may be withdrawn by their appellant or permissionlessly lapsed after seven days. These are bounded application transitions, not neutral adjudication or native finality proofs. **They are not present at the historical deployed address until the updated source is freshly deployed.**
 
 ## Test and runtime evidence
 
@@ -59,7 +60,7 @@ The existing appeal tests exercise the successful first-level path, all supporte
 
 The full regression run includes one pre-existing Direct Mode cross-contract probe failure: the test harness permits only one `gl.Contract` subclass per loaded module/process, so its attempt to deploy two classes in one process fails before the view assertion. It is not a CaseCourt failure and does not constitute evidence for or against real cross-contract calls. Four opt-in integration tests are skipped because no approved local runtime is running. Focused CaseCourt and frontend results are recorded below.
 
-All local AI and Equivalence Principle test behavior is mocked Direct Mode. No live CaseCourt consensus, failure rollback, runtime cost, bytecode, or appeal transition has been measured. Keep the separate reported Registry/Evaluator evidence and their deployed addresses; neither requires redeployment for this CaseCourt work.
+All local AI and Equivalence Principle test behavior is mocked Direct Mode. No live CaseCourt consensus, failure rollback, runtime cost, bytecode, or appeal transition for the updated source has been measured. Keep the separate reported Registry/Evaluator evidence and their deployed addresses; neither requires redeployment for this CaseCourt work.
 
 ## Controlled Studio plan
 

@@ -13,11 +13,14 @@ Authorization below reflects current public method guards in source. Contract me
 | Web source approval / capture request / unavailable report / capture / compare | Named party according to source binding and transition | Exact case/source/version/request identities; capture is hard-disabled; model/render work remains mocked locally |
 | `adjudicate_case` | Named party when evidence is locked | Case/version/evidence commitments, phase and replay checks; AI result schema/EP checks |
 | `attach_decision_reference` | Named case party | Versioned, exact target fields; unverified caller references do not gain appeal authority |
-| `challenge_decision` | Named case party other than decision submitter, subject to active challenge rules | Current decision identity/version and freeze/phase checks |
+| `challenge_decision` | Named case party other than decision submitter, subject to active challenge rules | Current decision identity/version and freeze/phase checks; seven-day expiry |
+| `withdraw_decision_challenge` | Legacy challenge appellant | `CHALLENGE_OPEN`, expected version/action ID, not frozen; restores the recorded decision unchanged |
+| `lapse_decision_challenge` | Anyone after seven-day expiry | `CHALLENGE_OPEN`, expected version/action ID, not frozen; restores the recorded decision unchanged |
 | `file_appeal` | Named party other than judgment submitter; consecutive appeal must be filed by the other party than parent appellant | Exact current target, case/Court/chain/version/commitment, filing commitment, max two levels |
 | Appeal evidence append/lock and withdrawal request | Appeal appellant | Active appeal ID, version/status, evidence cap, unique IDs; withdrawal is pre-ruling only |
 | `begin_appeal_review`, `adjudicate_appeal` | Named party other than appellant | Active appeal, exact version/status/locked evidence, original judgment/evidence bindings, strict schema/EP |
 | `resolve_appeal`, withdrawal approval | Either named case party (not appellant for approval) | Exact active appeal/ruling commitment or pending bilateral withdrawal; replay/version checks |
+| `lapse_stalled_appeal` | Anyone after the active appeal freeze deadline | Only eligible stalled/expired statuses, including appellant-requested `WITHDRAWAL_REQUESTED`; restores the original decision without a ruling |
 | `request_case_closure`, `approve_case_closure` | Either named party; approval by the other party | Exact current decision binding and request version; bilateral closure |
 | `file_contradiction_challenge` | **After Stage 7B: caller must belong to both distinct cases and cannot be the challenged decision submitter** | Both targets exact/current/operative; case freeze and per-case/global quotas; excerpts remain caller assertions |
 | Contradiction assessment | Public call once filed and while both linked cases are unfrozen/unappealed | Bounded strict output and EP; no legal authority from assessment |
@@ -26,7 +29,7 @@ Authorization below reflects current public method guards in source. Contract me
 | `request_freeze`, `unfreeze_case` | Named participant | One-time bounded ordinary freeze; appeal freeze cannot be cleared by this route |
 | All CaseCourt getters including recovery diagnostic | Anyone | Deterministic bounded keyed reads; no transaction finality oracle |
 
-There is no administrative superuser or DAO role. Reviewer role is the opposing participant selected by case-party protocol, which does not provide independence from conflict of interest or legal arbitration. Independent reviewer governance is **BLOCKED ON POLICY**. No unilateral appeal recovery, privileged third-party review, live frontend governance write, or cross-contract authority based on caller assertion is enabled.
+There is no administrative superuser or DAO role. Reviewer role is the opposing participant selected by case-party protocol, which does not provide independence from conflict of interest or legal arbitration. Independent reviewer governance remains **UNIMPLEMENTED**. Timeout lapse is available only after its fixed contract deadline and preserves the existing decision; it does not authorize a third party to decide merits. These source methods have not yet been deployed to the address in the historical deployment manifest.
 
 ## Adversarial authorization outcomes
 

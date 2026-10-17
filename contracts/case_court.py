@@ -25,6 +25,7 @@ MAX_ACTION_ID_LENGTH = 48
 MAX_EVIDENCE_ID_LENGTH = 48
 MAX_CASE_TYPE_LENGTH = 64
 MAX_FREEZE_SECONDS = 86400
+LEGACY_CHALLENGE_WINDOW_SECONDS = 7 * 86400
 # A stalled appeal (unresponsive reviewer, parties unable to agree on a
 # replacement) would otherwise freeze a case indefinitely: nothing short of
 # a recorded ruling or bilateral withdrawal could release it. This bounds
@@ -136,7 +137,11 @@ CHALLENGE_GROUNDS = (
 )
 
 APPEAL_GROUNDS = ("NEW_EVIDENCE", "MATERIAL_ERROR", "PROCEDURAL_CONCERN", "MISAPPLIED_CRITERIA")
-APPEAL_STATUSES = ("PENDING_ADJUDICATION", "REVIEW_READY", "PENDING_RESOLUTION", "RESOLVED")
+APPEAL_STATUSES = (
+    "PENDING_ADJUDICATION", "REVIEW_READY", "WITHDRAWAL_REQUESTED", "PENDING_RESOLUTION",
+    "RESOLVED", "WITHDRAWN", "LAPSED_TIMEOUT", "WITHDRAWAL_LAPSED_TIMEOUT",
+    "WITHDRAWN_BY_CHALLENGER",
+)
 APPELLATE_OUTCOMES = ("UPHELD", "REVERSED", "REMANDED", "DISMISSED", "INSUFFICIENT_EVIDENCE")
 APPELLATE_STATE_CHANGES = ("NONE", "SUPERSEDE", "REOPEN_REVIEW", "DISMISS_APPEAL", "NONFINAL_REOPEN")
 APPELLATE_CRITERIA_CODES = ("JUDGMENT_VALIDITY", "MATERIAL_ERROR", "PROCEDURAL_FAIRNESS", "EVIDENCE_SUFFICIENCY", "REMEDY")
@@ -213,7 +218,8 @@ def _pure_validate_web_capture_output(value, page_text: str) -> dict[str, object
     summary = value["reasoning_summary"]
     if not isinstance(summary, str) or len(summary.encode("utf-8")) > MAX_WEB_REASONING_LENGTH:
         raise gl.vm.UserError("web source summary exceeds bound")
-    return {"claims": validated, "evidence_sufficient": sufficient, "reasoning_summary": summary.strip()}
+    return {"claims": validated, "evidence_sufficient": sufficient,
+            "reasoning_summary": NON_AUTHORITATIVE_EXPLANATION}
 
 
 def _pure_validate_web_capture_result(value) -> dict[str, object]:
@@ -249,7 +255,7 @@ def _pure_validate_web_capture_result(value) -> dict[str, object]:
         raise gl.vm.UserError("web source summary is invalid")
     if _pure_web_excerpt_commitment(normalized) != value["excerpt_commitment"]:
         raise gl.vm.UserError("web source excerpt commitment mismatch")
-    return value
+    return {**value, "reasoning_summary": NON_AUTHORITATIVE_EXPLANATION}
 
 
 def _pure_web_capture_signature(result: dict[str, object]) -> list[tuple[str, str, str]]:
@@ -332,7 +338,7 @@ def _pure_validate_source_comparison_output(
     if not isinstance(summary, str) or len(summary.encode("utf-8")) > MAX_WEB_REASONING_LENGTH:
         raise gl.vm.UserError("source comparison summary exceeds bound")
     return {"relation": relation, "evidence_sufficient": sufficient, "source_conflict": conflict,
-            "conflict_pairs": pairs, "reasoning_summary": summary.strip()}
+            "conflict_pairs": pairs, "reasoning_summary": NON_AUTHORITATIVE_EXPLANATION}
 
 
 def _pure_source_comparison_equivalent(left: dict[str, object], right: dict[str, object]) -> bool:
@@ -670,7 +676,9 @@ def _pure_validate_contradiction_result(value) -> dict[str, object]:
         raise gl.vm.UserError("review classification must request further review")
     if classification != "MATERIAL_CONTRADICTION" and fields and not value["decisions_inconsistent"]:
         raise gl.vm.UserError("conflict fields require inconsistent decisions")
-    return {name: (list(fields) if name == "material_conflict_fields" else reasoning if name == "reasoning_summary" else value[name]) for name in required}
+    return {name: (list(fields) if name == "material_conflict_fields"
+                   else NON_AUTHORITATIVE_EXPLANATION if name == "reasoning_summary" else value[name])
+            for name in required}
 
 
 def _pure_sha256_fields(fields: list[str]) -> str:
@@ -1584,6 +1592,7 @@ class CaseCourt(gl.Contract):
             "evidence_commitment": str(snapshot["decision_evidence_root"]),
             "grounds_code": grounds_code,
             "grounds_digest": grounds_digest,
+            "challenge_expires_at": self._now_unix() + LEGACY_CHALLENGE_WINDOW_SECONDS,
             # A digest is only a commitment supplied by the party; no bytes or
             # external source are fetched or authenticated in this version.
             "new_evidence_commitment": grounds_digest if grounds_code == "NEW_EVIDENCE" else "",
@@ -1600,6 +1609,73 @@ class CaseCourt(gl.Contract):
         )
         self.records[self._challenge_key(challenge_id)] = "1"
         self.records[self._appeal_key(challenge_id)] = self._encode(appeal_record)
+        self.records[self._case_key(case_id)] = self._encode(snapshot)
+
+    @gl.public.write
+    def withdraw_decision_challenge(self, case_id: str, expected_version: u32, action_id: str) -> None:
+        """Let the named challenger withdraw their legacy challenge without changing the decision."""
+        self._validate_case_id(case_id)
+        self._validate_action_id(action_id)
+        snapshot = self._get_case_or_revert(case_id)
+        self._require_version(snapshot, expected_version)
+        self._require_not_frozen(snapshot)
+        self._require_party(snapshot)
+        if snapshot["phase"] != CASE_PHASE_CHALLENGE_OPEN or not snapshot.get("challenge_id"):
+            raise gl.vm.UserError("case has no open legacy challenge")
+        challenge_id = str(snapshot["challenge_id"])
+        key = self._appeal_key(challenge_id)
+        if key not in self.records:
+            raise gl.vm.UserError("legacy challenge record not found")
+        appeal = self._decode(self.records[key])
+        if appeal.get("status") != APPEAL_STATUS_FILED_UNADJUDICATED:
+            raise gl.vm.UserError("legacy challenge is already terminal")
+        self._require_appeal_appellant(appeal)
+        self._finish_legacy_challenge(snapshot, appeal, expected_version, action_id,
+                                      "WITHDRAWN_BY_CHALLENGER", "LEGACY_CHALLENGE_WITHDRAWN")
+
+    @gl.public.write
+    def lapse_decision_challenge(self, case_id: str, expected_version: u32, action_id: str) -> None:
+        """Permissionlessly close a stale legacy challenge while retaining the challenged decision."""
+        self._validate_case_id(case_id)
+        self._validate_action_id(action_id)
+        snapshot = self._get_case_or_revert(case_id)
+        self._require_version(snapshot, expected_version)
+        self._require_not_frozen(snapshot)
+        if snapshot["phase"] != CASE_PHASE_CHALLENGE_OPEN or not snapshot.get("challenge_id"):
+            raise gl.vm.UserError("case has no open legacy challenge")
+        challenge_id = str(snapshot["challenge_id"])
+        key = self._appeal_key(challenge_id)
+        if key not in self.records:
+            raise gl.vm.UserError("legacy challenge record not found")
+        appeal = self._decode(self.records[key])
+        if appeal.get("status") != APPEAL_STATUS_FILED_UNADJUDICATED:
+            raise gl.vm.UserError("legacy challenge is already terminal")
+        if self._now_unix() < int(appeal.get("challenge_expires_at", 0)):
+            raise gl.vm.UserError("legacy challenge response window has not elapsed")
+        self._finish_legacy_challenge(snapshot, appeal, expected_version, action_id,
+                                      "LAPSED_TIMEOUT", "LEGACY_CHALLENGE_LAPSED_TIMEOUT")
+
+    def _finish_legacy_challenge(
+        self, snapshot: dict[str, object], appeal: dict[str, object], expected_version: u32,
+        action_id: str, terminal_status: str, action_kind: str,
+    ) -> None:
+        case_id = str(snapshot["case_id"])
+        challenge_id = str(appeal["appeal_id"])
+        self._ensure_action_available(action_id, snapshot)
+        self._ensure_capacity(snapshot)
+        digest = self._payload_digest([
+            action_kind, case_id, str(expected_version), challenge_id, terminal_status,
+        ])
+        appeal["status"] = terminal_status
+        appeal["resolved_at"] = self._now_iso()
+        appeal["resolution"] = "ORIGINAL_DECISION_RETAINED_UNCHANGED"
+        snapshot["phase"] = CASE_PHASE_DECISION_RECORDED
+        snapshot["version"] = int(snapshot["version"]) + 1
+        snapshot = self._append_action(
+            snapshot, action_id, action_kind, gl.message.sender_address,
+            expected_version, digest, challenge_id,
+        )
+        self.records[self._appeal_key(challenge_id)] = self._encode(appeal)
         self.records[self._case_key(case_id)] = self._encode(snapshot)
 
     @gl.public.write
@@ -2838,8 +2914,12 @@ class CaseCourt(gl.Contract):
         appeal = self._get_active_appeal_or_revert(case_id, appeal_id, snapshot)
         self._require_version(snapshot, expected_version)
         self._require_party(snapshot)
-        if appeal["status"] not in ("PENDING_ADJUDICATION", "REVIEW_READY"):
+        lapsable_statuses = ("PENDING_ADJUDICATION", "REVIEW_READY", "WITHDRAWAL_REQUESTED")
+        if appeal["status"] not in lapsable_statuses:
             raise gl.vm.UserError("appeal is not in a lapsable state")
+        if (appeal["status"] == "WITHDRAWAL_REQUESTED"
+                and appeal.get("withdrawal_requested_by") != str(appeal.get("appellant", "")).lower()):
+            raise gl.vm.UserError("appeal withdrawal request is invalid")
         if self._appellate_ruling_key(appeal_id) in self.records:
             raise gl.vm.UserError("appeal already has a recorded ruling")
         if self._now_unix() < int(snapshot.get("freeze_until", 0)):
@@ -2847,8 +2927,11 @@ class CaseCourt(gl.Contract):
         self._ensure_action_available(action_id, snapshot)
         self._ensure_capacity(snapshot)
         digest = self._payload_digest(["lapse_stalled_appeal", case_id, appeal_id, str(expected_version)])
-        appeal["status"] = "LAPSED_TIMEOUT"
+        was_withdrawal_requested = appeal["status"] == "WITHDRAWAL_REQUESTED"
+        appeal["status"] = "WITHDRAWAL_LAPSED_TIMEOUT" if was_withdrawal_requested else "LAPSED_TIMEOUT"
         appeal["lapsed_at"] = self._now_iso()
+        if was_withdrawal_requested:
+            appeal["withdrawal_lapsed_at"] = appeal["lapsed_at"]
         appeal["last_case_version"] = int(snapshot["version"]) + 1
         snapshot["active_appeal_id"] = ""
         snapshot["appeal_freeze"] = False
@@ -2861,7 +2944,9 @@ class CaseCourt(gl.Contract):
         snapshot["phase"] = CASE_PHASE_DECISION_RECORDED if str(appeal["target_kind"]) == "JUDGMENT" else CASE_PHASE_APPEAL_RESOLVED
         snapshot["version"] = int(snapshot["version"]) + 1
         snapshot = self._append_action(
-            snapshot, action_id, "APPEAL_LAPSED_TIMEOUT", gl.message.sender_address,
+            snapshot, action_id,
+            "APPEAL_WITHDRAWAL_LAPSED_TIMEOUT" if was_withdrawal_requested else "APPEAL_LAPSED_TIMEOUT",
+            gl.message.sender_address,
             expected_version, digest, appeal_id,
         )
         self.records[self._appeal_key(appeal_id)] = self._encode(appeal)
@@ -2976,7 +3061,7 @@ class CaseCourt(gl.Contract):
             "ruling_commitment": ruling_commitment,
             "native_transaction_status": "NOT_AVAILABLE_FROM_CASECOURT",
             "finalized_successful_execution": "NOT_VERIFIED",
-            "recovery_authority": "NO_UNILATERAL_RECOVERY_TRANSITION",
+            "recovery_authority": "CASE_PARTY_MAY_LAPSE_AFTER_FREEZE_EXPIRY",
         }
 
     @gl.public.view

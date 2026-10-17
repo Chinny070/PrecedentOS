@@ -16,6 +16,8 @@ Stage-specific evidence uses these explicit states: **IMPLEMENTED**, **LOCALLY T
 
 ## Feature matrix
 
+> **2026-10-17 source-status correction:** several rows below describe the earlier source snapshot and its disabled frontend. Current working-tree source now includes challenged-decision exits, appeal withdrawal timeout recovery, wallet write-adapter entries for recovery/closure, and connected recovery controls. Local verification is recorded in the current-source update below. These changes have **not** been deployed to or verified at the historical CaseCourt address; live appeal, judgment, and recovery statuses remain as evidenced in the deployment manifest.
+
 | # | Feature | Contract implementation | Frontend implementation | Automated tests | Security review | Live Studionet verification |
 |---:|---|---|---|---|---|---|
 | 1 | Precedent registration and evidence commitments | Registry v1 implemented append-only; verifies digest syntax, not source bytes. | Registration/detail/addresses implemented; user reports deployment at `0xd19FfF91FaB33932A70CB9e2927159a8F103945C`. | Registry Direct Mode coverage; cross-language digest vector. | Source authenticity remains unresolved; deployed source/bytecode not independently matched. | **USER-REPORTED LIVE SMOKE PASS:** one accepted registration and readback; user confirmed chain selector 61999; duplicate/invalid rollback and independent receipt pending. |
@@ -38,6 +40,17 @@ Stage-specific evidence uses these explicit states: **IMPLEMENTED**, **LOCALLY T
 | 18 | Complete frontend workflows | Web Evidence and freeze states have typed read interfaces; no production write adapter. | Web Evidence page communicates source approval, observation, freshness and freeze recovery without live claims. | Vitest cross-language vector tests and full frontend checks. | Live data lifecycle, wallet-authorized actions, accessibility, and finality-aware controls remain open. | **NOT STARTED** No live governance UI. |
 | 19 | Real Studionet deployment verification | Registry and Evaluator addresses/results are user-reported in the Stage 9 overlays. CaseCourt has no supplied deployment address. The separate diagnostic probe is `0xbD809d35095A8CC260b9Abd6e65F42d5348800B2`. | Existing wallet/network adapter; no live CaseCourt adapter/write path. | Direct Mode and cached lint; user supplied probe, Registry, and Evaluator observations. Independent transaction reads failed `fetch failed`. | Exact stable runner/toolchain, source/address proof, and fee profile unresolved. | **PARTIAL USER-REPORTED PRODUCTION TESTS; CaseCourt still not deployed/runtime verified.** |
 | 20 | Submission-ready documentation and demonstration | Stage 3B judgment code/schema implemented locally; no runtime-verified authority/finality. | Fictional demo preserved; adjudication remains disabled. | Current counts in `V2_STAGE_3B_REPORT.md`; no live end-to-end demo. | Runtime, economic and legal-policy gates remain. | **—** No verified live deployment or demo. |
+
+## Current source update — 2026-10-17
+
+- Legacy `CHALLENGE_OPEN` now has guarded appellant withdrawal and seven-day permissionless lapse transitions that preserve the recorded decision.
+- An expired `WITHDRAWAL_REQUESTED` appeal can be permissionlessly lapsed after its freeze deadline; it records timeout status and restores the existing decision without creating a ruling.
+- Contradiction and Web Render consensus result validators canonicalize non-authoritative explanation text before persistence/commitment, so reasoning-only leader variation cannot change stored narrative.
+- The React CaseCourt page exposes withdrawal, timeout lapse, ordinary freeze release, closure, and legacy challenge exits. Appeal evidence, reviewer adjudication, ruling readback and resolution controls are present in the existing appeal panel. Client methods validate exact ABI argument shapes.
+- Python suite: 266 passed, 4 skipped. Frontend: lint passed; 93 unit tests passed; typecheck and production build passed. Playwright printed `ok` for all 11 browser tests, including mobile and recovery controls; on this Windows host the runner did not exit after the final passing test, so no process exit code was captured.
+- GenVM lint, schema, and typecheck passed for Registry, Evaluator, and CaseCourt using cached runner metadata. Upstream runner lookup was blocked by Windows socket permission; this is not live runtime compatibility proof.
+- Public Vercel `/`, `/case-court`, `/precedents`, `/compare`, and `/web-evidence` returned HTTP 200 with no browser page/console errors or failed responses; CaseCourt fit a 390px viewport without horizontal overflow. The deployed page does not yet contain the new recovery controls.
+- This is source/local evidence only. The current deployed CaseCourt address remains historical until a new deployment is finalized and its source identity is recorded. Formal appeal flows depend on an accepted persisted judgment; no such outcome is inferred from an Undetermined transaction.
 
 ## Stage 8 evidence overlay for the 20 original product requirements
 

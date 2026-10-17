@@ -32,8 +32,17 @@ test('CaseCourt exposes every appeal stage and does not submit without a wallet'
     'begin_appeal_review (reviewer only)', 'adjudicate_appeal (bound reviewer)',
     'Load get_appellate_ruling', 'resolve_appeal', 'Load get_appeal readback',
   ]) {
-    await expect(page.getByRole('button', { name: new RegExp(action, 'i') })).toBeVisible();
+    await expect(page.getByRole('button', { name: action, exact: true })).toBeVisible();
+  }
+  for (const action of [
+    'request_appeal_withdrawal', 'approve_appeal_withdrawal', 'lapse_stalled_appeal',
+    'unfreeze_case (expired non-appeal freeze)', 'withdraw_decision_challenge', 'lapse_decision_challenge',
+    'request_case_closure', 'approve_case_closure (other party)', 'Load recovery status',
+  ]) {
+    await expect(page.getByRole('button', { name: action, exact: true })).toBeVisible();
   }
   await expect(page.getByRole('button', { name: /submit file_appeal/i })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /request_appeal_withdrawal/i })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /request_case_closure/i })).toBeDisabled();
   await expect(page.getByText(/not a neutral court process/i)).toBeVisible();
 });

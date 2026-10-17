@@ -126,7 +126,7 @@ def test_appeal_upheld_end_to_end_freeze_immutable_ruling_and_bilateral_closure(
     assert recovery["case_is_frozen"] == "true"
     assert recovery["native_transaction_status"] == "NOT_AVAILABLE_FROM_CASECOURT"
     assert recovery["finalized_successful_execution"] == "NOT_VERIFIED"
-    assert recovery["recovery_authority"] == "NO_UNILATERAL_RECOVERY_TRANSITION"
+    assert recovery["recovery_authority"] == "CASE_PARTY_MAY_LAPSE_AFTER_FREEZE_EXPIRY"
     with direct_vm.expect_revert("case not found"):
         contract.get_appeal_recovery_status("FICT-OTHER-CASE", "AP-LEVEL1")
     assert direct_vm.run_validator() is True
@@ -803,6 +803,57 @@ def test_stalled_appeal_lapse_rejects_outsiders_and_parties_restore_prior_state(
     assert restored["active_appeal_id"] == ""
     assert restored["freeze_until"] == "0"
     assert contract.get_appeal("AP-LEVEL1")["status"] == "LAPSED_TIMEOUT"
+
+
+def test_expired_withdrawal_request_lapses_without_countersignature_and_preserves_decision(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    original_case = contract.get_case(case_id)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    _file_appeal(contract, direct_vm, direct_bob, case_id)
+    case = contract.get_case(case_id)
+    direct_vm.sender = direct_bob
+    contract.request_appeal_withdrawal(case_id, "AP-LEVEL1", int(case["version"]), "AP-WITHDRAW-REQ", "UNABLE_TO_PROCEED")
+    requested = contract.get_case(case_id)
+    appeal_requested = contract.get_appeal("AP-LEVEL1")
+    assert appeal_requested["status"] == "WITHDRAWAL_REQUESTED"
+
+    direct_vm.warp("2030-01-08T00:00:00Z")
+    direct_vm.sender = direct_alice
+    contract.lapse_stalled_appeal(case_id, "AP-LEVEL1", int(requested["version"]), "AP-WITHDRAW-LAPSE")
+
+    restored = contract.get_case(case_id)
+    appeal = contract.get_appeal("AP-LEVEL1")
+    assert restored["phase"] == "DECISION_RECORDED"
+    assert restored["active_appeal_id"] == ""
+    assert restored["appeal_freeze"] == "false"
+    assert restored["frozen"] == "false"
+    assert restored["operative_decision_id"] == original_case["operative_decision_id"]
+    assert restored["operative_decision_digest"] == original_case["operative_decision_digest"]
+    assert contract.get_judgment("AP-JUDGMENT-1")["judgment_commitment"] == original_case["operative_decision_digest"]
+    assert appeal["status"] == "WITHDRAWAL_LAPSED_TIMEOUT"
+    assert appeal["withdrawal_requested_by"].lower() == appeal["appellant"].lower()
+    assert appeal["withdrawal_lapsed_at"] == appeal["lapsed_at"]
+
+
+def test_withdrawal_requested_appeal_still_rejects_early_timeout_lapse(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    contract = _deploy(direct_deploy)
+    case_id = _open_judged(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.warp("2030-01-01T00:00:00Z")
+    _file_appeal(contract, direct_vm, direct_bob, case_id)
+    case = contract.get_case(case_id)
+    direct_vm.sender = direct_bob
+    contract.request_appeal_withdrawal(case_id, "AP-LEVEL1", int(case["version"]), "AP-WITHDRAW-REQ", "UNABLE_TO_PROCEED")
+    before = contract.get_case(case_id)
+    direct_vm.sender = direct_alice
+    with direct_vm.expect_revert("window has not elapsed yet"):
+        contract.lapse_stalled_appeal(case_id, "AP-LEVEL1", int(before["version"]), "AP-WITHDRAW-LAPSE-EARLY")
+    assert contract.get_case(case_id) == before
+    assert contract.get_appeal("AP-LEVEL1")["status"] == "WITHDRAWAL_REQUESTED"
 
 
 def test_timeout_lapsed_target_can_be_refiled_with_fresh_identity_and_action(direct_vm, direct_deploy, direct_alice, direct_bob):
