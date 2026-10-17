@@ -221,7 +221,15 @@ function EvidenceSection({ wallet, address, run, reload, caseId, version, phase,
   async function submitLock() {
     if (!wallet || version === undefined) return;
     const actionId = newActionId('LOCK');
-    await run(`Lock evidence for ${caseId}`, () => writeContractMethod(wallet, address, 'lock_evidence', [caseId, version, actionId]), reload);
+    await run(`Lock evidence for ${caseId}`, () => writeContractMethod(wallet, address, 'lock_evidence', [caseId, version, actionId]), reload, async () => {
+      const client = await createReadClient();
+      const state = await readCaseSnapshot(client, address, caseId);
+      return state.case_id === caseId && state.phase === 'EVIDENCE_LOCKED'
+        && Number(state.version) === version + 1
+        && Number(state.evidence_count) === evidenceCount
+        && Number(state.evidence_root_count) === evidenceCount
+        && Boolean(state.evidence_root);
+    });
   }
   return <section className="settings-card">
     <SectionLabel index="C">EVIDENCE</SectionLabel>
